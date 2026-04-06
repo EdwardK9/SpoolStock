@@ -7,229 +7,859 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        .active-tab { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 700; }
-        .card-shadow { box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08); }
+        :root {
+            --bg: #0d0f14;
+            --surface: #161921;
+            --surface2: #1e2330;
+            --border: #2a3045;
+            --accent: #4f8ef7;
+            --accent2: #7c5cbf;
+            --text: #e8eaf0;
+            --muted: #6b7280;
+            --green: #22c55e;
+            --orange: #f59e0b;
+            --red: #ef4444;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+        .mono { font-family: 'Space Mono', monospace; }
+
+        /* Animated grid background */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0;
+            background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                              linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .content { position: relative; z-index: 1; }
+
+        /* Active nav tab */
+        .nav-tab { border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .nav-tab.active { border-bottom-color: var(--accent); color: var(--accent); }
+        .nav-tab:hover:not(.active) { color: var(--text); border-bottom-color: var(--border); }
+
+        /* Spool card */
+        .spool-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .spool-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--card-accent, var(--accent));
+            opacity: 0;
+            transition: opacity 0.25s;
+        }
+        .spool-card:hover { transform: translateY(-3px); border-color: #3a4055; }
+        .spool-card:hover::before { opacity: 1; }
+        .spool-card.low-stock { border-color: #f59e0b44; }
+        .spool-card.low-stock::before { background: var(--orange); opacity: 1; }
+        .spool-card.empty { border-color: #ef444433; opacity: 0.6; }
+
+        /* Stat card */
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+
+        /* Button */
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 10px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-primary:hover { background: #3a7ef5; transform: translateY(-1px); }
+        .btn-ghost {
+            background: var(--surface2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 10px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+
+        /* Progress bar */
+        .progress-bg { background: var(--surface2); border-radius: 99px; height: 5px; }
+        .progress-fill { border-radius: 99px; height: 5px; transition: width 0.6s ease; }
+
+        /* Chart bars */
+        .chart-bar { 
+            background: var(--accent); 
+            border-radius: 6px 6px 0 0; 
+            transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            min-height: 4px;
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed; bottom: 24px; right: 24px; z-index: 999;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 14px; font-weight: 600;
+            transform: translateY(100px); opacity: 0;
+            transition: all 0.3s ease;
+            max-width: 320px;
+        }
+        #toast.show { transform: translateY(0); opacity: 1; }
+        #toast.success { border-left: 4px solid var(--green); }
+        #toast.error { border-left: 4px solid var(--red); }
+
+        /* Modal */
+        #modal-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+        }
+        #modal-overlay.open { display: flex; }
+        #modal-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            width: 100%; max-width: 480px;
+        }
+
+        /* Table */
+        .data-table thead { background: var(--surface2); }
+        .data-table th { padding: 14px 20px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+        .data-table td { padding: 14px 20px; font-size: 14px; border-top: 1px solid var(--border); }
+        .data-table tr:hover td { background: var(--surface2); }
+
+        /* Color chip */
+        .color-chip {
+            width: 28px; height: 28px; border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.1);
+            display: inline-block;
+        }
+
+        /* Material badge */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px; border-radius: 6px;
+            font-size: 11px; font-weight: 700; font-family: 'Space Mono', monospace;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Fade in for cards */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.4s ease forwards; }
+
+        /* Hidden */
+        .hidden { display: none !important; }
+
+        input[type=number], input[type=text], select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
     </style>
 </head>
 
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body>
+<div class="content max-w-7xl mx-auto px-4 pb-16">
 
-    <header class="max-w-7xl mx-auto px-4 py-8">
-        <div class="flex justify-between items-end mb-8">
-            <div>
-                <h1 class="text-3xl font-black tracking-tight text-slate-900 uppercase">Filament Flow</h1>
-                <p class="text-slate-500 font-medium">Bambu Lab P1S & H2D Inventory</p>
+    <!-- HEADER -->
+    <header class="py-8 flex justify-between items-center flex-wrap gap-4">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <span class="text-2xl">🧵</span>
+                <h1 class="text-2xl font-black tracking-tight mono uppercase text-white">Filament<span style="color:var(--accent)">Flow</span></h1>
             </div>
-            <div class="flex gap-3">
-                <label class="bg-white border-2 border-slate-200 px-4 py-2 rounded-xl cursor-pointer hover:border-blue-400 hover:text-blue-600 transition font-bold text-sm shadow-sm">
-                    📂 Import Excel <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
-                </label>
-                <label class="bg-blue-600 text-white px-4 py-2 rounded-xl cursor-pointer hover:bg-blue-700 transition font-bold text-sm shadow-md">
-                    🚀 Log 3MF Print <input type="file" id="threemf-upload" class="hidden" accept=".3mf">
-                </label>
-            </div>
+            <p class="text-xs text-gray-500 mono ml-11">Bambu Lab P1S & H2D Inventory</p>
         </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
-                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Spools</p>
-                <h2 id="stat-count" class="text-3xl font-black text-slate-900">0</h2>
-            </div>
-            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
-                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Stock Weight</p>
-                <h2 id="stat-weight" class="text-3xl font-black text-emerald-600">0.0<span class="text-sm ml-1 text-slate-400">kg</span></h2>
-            </div>
-            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
-                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Low Stock</p>
-                <h2 id="stat-low" class="text-3xl font-black text-orange-500">0</h2>
-            </div>
-            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
-                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Materials</p>
-                <h2 id="stat-types" class="text-3xl font-black text-purple-600">0</h2>
-            </div>
+        <div class="flex gap-3 flex-wrap">
+            <label class="btn-ghost cursor-pointer flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                Import Excel
+                <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
+            </label>
+            <label class="btn-primary cursor-pointer flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                Log 3MF Print
+                <input type="file" id="threemf-upload" class="hidden" accept=".3mf">
+            </label>
+            <button class="btn-ghost flex items-center gap-2" onclick="openAddModal()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Spool
+            </button>
         </div>
     </header>
 
-    <nav class="max-w-7xl mx-auto px-4 mb-8">
-        <div class="flex border-b border-slate-200 gap-8">
-            <button onclick="showTab('dashboard')" id="btn-dashboard" class="pb-4 text-sm font-bold active-tab transition-all">DASHBOARD</button>
-            <button onclick="showTab('filaments')" id="btn-filaments" class="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all">INVENTORY</button>
-            <button onclick="showTab('usage')" id="btn-usage" class="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all">USAGE HISTORY</button>
+    <!-- STAT CARDS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="stat-card">
+            <p class="text-xs text-gray-500 mono uppercase tracking-widest mb-1">Spools</p>
+            <p id="stat-count" class="text-3xl font-black text-white mono">—</p>
         </div>
+        <div class="stat-card">
+            <p class="text-xs text-gray-500 mono uppercase tracking-widest mb-1">Stock Weight</p>
+            <p id="stat-weight" class="text-3xl font-black mono" style="color:var(--green)">—<span class="text-sm font-normal text-gray-500 ml-1">kg</span></p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs text-gray-500 mono uppercase tracking-widest mb-1">Low Stock</p>
+            <p id="stat-low" class="text-3xl font-black mono" style="color:var(--orange)">—</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs text-gray-500 mono uppercase tracking-widest mb-1">Materials</p>
+            <p id="stat-types" class="text-3xl font-black mono" style="color:var(--accent2)">—</p>
+        </div>
+    </div>
+
+    <!-- NAV -->
+    <nav class="flex gap-6 border-b mb-8" style="border-color:var(--border)">
+        <button onclick="showTab('dashboard')" id="btn-dashboard" class="nav-tab active pb-4 text-sm font-bold mono uppercase tracking-wider text-gray-400">Dashboard</button>
+        <button onclick="showTab('inventory')" id="btn-inventory" class="nav-tab pb-4 text-sm font-bold mono uppercase tracking-wider text-gray-400">Inventory</button>
+        <button onclick="showTab('usage')" id="btn-usage" class="nav-tab pb-4 text-sm font-bold mono uppercase tracking-wider text-gray-400">Usage Log</button>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 pb-12">
-        <section id="tab-dashboard" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-white p-8 rounded-2xl border border-slate-100 card-shadow">
-                <h3 class="text-lg font-black mb-6 uppercase tracking-tight">Material Breakdown</h3>
-                <div id="chart-placeholder" class="h-64 bg-slate-50 rounded-xl flex items-center justify-center border-2 border-dashed border-slate-200 text-slate-400 font-medium">
-                    Breakdown will appear after importing data
+    <!-- MAIN SECTIONS -->
+    <main>
+
+        <!-- DASHBOARD -->
+        <section id="tab-dashboard">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Material chart -->
+                <div class="lg:col-span-2" style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px">
+                    <h3 class="text-sm font-bold mono uppercase tracking-widest text-gray-400 mb-6">Material Breakdown</h3>
+                    <div id="material-chart" class="flex items-end gap-3 h-48">
+                        <div class="flex-1 flex items-center justify-center text-gray-600 text-sm">Import data to see chart</div>
+                    </div>
+                    <div id="chart-legend" class="flex flex-wrap gap-4 mt-4"></div>
+                </div>
+
+                <!-- Status panel -->
+                <div style="background:var(--surface2); border:1px solid var(--border); border-radius:16px; padding:28px">
+                    <h3 class="text-sm font-bold mono uppercase tracking-widest text-gray-400 mb-5">System</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 rounded-lg" style="background:rgba(255,255,255,0.04)">
+                            <span class="text-xs mono text-gray-500">D1 DATABASE</span>
+                            <span class="text-xs mono font-bold" style="color:var(--green)" id="db-status">CONNECTED</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-lg" style="background:rgba(255,255,255,0.04)">
+                            <span class="text-xs mono text-gray-500">3MF PARSER</span>
+                            <span class="text-xs mono font-bold" style="color:var(--green)">READY</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-lg" style="background:rgba(255,255,255,0.04)">
+                            <span class="text-xs mono text-gray-500">LOW STOCK ITEMS</span>
+                            <span class="text-xs mono font-bold" id="sys-low" style="color:var(--orange)">—</span>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <p class="text-xs text-gray-600 mono mb-3">STOCK HEALTH</p>
+                        <div class="progress-bg mb-1">
+                            <div id="health-bar" class="progress-fill" style="background:var(--green); width:0%"></div>
+                        </div>
+                        <p id="health-label" class="text-xs text-gray-500 mt-1">—</p>
+                    </div>
                 </div>
             </div>
-            <div class="bg-slate-900 text-white p-8 rounded-2xl card-shadow">
-                <h3 class="text-lg font-black mb-4 uppercase tracking-tight">System Status</h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center bg-white/10 p-3 rounded-lg">
-                        <span class="text-xs font-bold text-white/60">3MF PARSER</span>
-                        <span class="text-xs font-bold text-emerald-400">READY</span>
-                    </div>
-                    <div class="flex justify-between items-center bg-white/10 p-3 rounded-lg">
-                        <span class="text-xs font-bold text-white/60">D1 DATABASE</span>
-                        <span class="text-xs font-bold text-emerald-400">CONNECTED</span>
-                    </div>
-                    <p class="text-[11px] text-white/40 leading-relaxed pt-4 italic">
-                        Processing handled by Ryzen 9 5950X local environment for maximum efficiency.
-                    </p>
-                </div>
+
+            <!-- Low stock alerts -->
+            <div id="low-stock-section" class="mt-6 hidden">
+                <h3 class="text-sm font-bold mono uppercase tracking-widest text-gray-400 mb-4">⚠️ Low Stock Alerts</h3>
+                <div id="low-stock-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
             </div>
         </section>
 
-        <section id="tab-filaments" class="hidden">
-            <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                </div>
+        <!-- INVENTORY -->
+        <section id="tab-inventory" class="hidden">
+            <!-- Filters -->
+            <div class="flex flex-wrap gap-3 mb-6 items-center">
+                <input type="text" id="search-input" placeholder="Search brand, colour, material…" 
+                       class="flex-1 min-w-48" style="max-width:300px" oninput="filterCards()">
+                <select id="filter-material" onchange="filterCards()" style="width:auto">
+                    <option value="">All Materials</option>
+                </select>
+                <select id="filter-style" onchange="filterCards()" style="width:auto">
+                    <option value="">All Styles</option>
+                </select>
+                <button onclick="filterCards('in-stock')" class="btn-ghost text-xs py-2">In Stock Only</button>
+            </div>
+            <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+            <p id="no-results" class="text-center text-gray-600 py-16 hidden">No filaments match your filters.</p>
         </section>
 
+        <!-- USAGE LOG -->
         <section id="tab-usage" class="hidden">
-            <div class="bg-white rounded-2xl card-shadow overflow-hidden border border-slate-100">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-50 border-b border-slate-100">
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden">
+                <table class="data-table w-full text-left">
+                    <thead>
                         <tr>
-                            <th class="p-5 text-xs font-black text-slate-400 uppercase tracking-widest">Date</th>
-                            <th class="p-5 text-xs font-black text-slate-400 uppercase tracking-widest">Project</th>
-                            <th class="p-5 text-xs font-black text-slate-400 uppercase tracking-widest">Grams Used</th>
+                            <th>Date</th>
+                            <th>Project</th>
+                            <th>Filament</th>
+                            <th>Used</th>
                         </tr>
                     </thead>
-                    <tbody id="usage-list" class="divide-y divide-slate-50"></tbody>
+                    <tbody id="usage-list">
+                        <tr><td colspan="4" class="text-center text-gray-600 py-12">No usage records yet.</td></tr>
+                    </tbody>
                 </table>
             </div>
         </section>
+
     </main>
+</div>
 
-    <script>
-        // 1. NAVIGATION
-        function showTab(tabName) {
-            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab', 'text-slate-400'));
-            
-            document.getElementById('tab-' + tabName).classList.remove('hidden');
-            document.getElementById('btn-' + tabName).classList.add('active-tab');
-            
-            if (tabName === 'filaments') loadFilaments();
-            if (tabName === 'usage') loadUsage();
-        }
-
-        // 2. DATA LOADING
-        async function loadFilaments() {
-            const res = await fetch('/api/filaments');
-            const data = await res.json();
-
-            // Stats Logic
-            document.getElementById('stat-count').innerText = data.length;
-            const totalGrams = data.reduce((acc, curr) => acc + (parseFloat(curr.weight_current) || 0), 0);
-            document.getElementById('stat-weight').innerText = (totalGrams / 1000).toFixed(1);
-            document.getElementById('stat-low').innerText = data.filter(f => f.weight_current < 150).length;
-            
-            const uniqueTypes = [...new Set(data.map(f => f.material))];
-            document.getElementById('stat-types').innerText = uniqueTypes.length;
-
-            const grid = document.getElementById('filament-grid');
-            grid.innerHTML = data.map(f => `
-                <div class="bg-white p-6 rounded-2xl border border-slate-100 card-shadow hover:translate-y-[-4px] transition-all duration-300">
-                    <div class="flex justify-between items-start mb-6">
-                        <div class="flex flex-col gap-1">
-                            <span class="inline-block w-fit px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-tighter">${f.material}</span>
-                            <h3 class="text-xl font-black text-slate-900">${f.brand}</h3>
-                            <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">${f.color_name} • ${f.style || 'Standard'}</p>
-                        </div>
-                        <div class="flex flex-col items-end">
-                            <span class="text-[10px] font-mono text-slate-300">#${f.id}</span>
-                            <div class="w-6 h-6 rounded-lg border shadow-inner mt-2" style="background-color: ${f.color_hex || '#e2e8f0'}"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-between items-end border-t border-slate-50 pt-4">
-                        <div>
-                            <p class="text-[10px] text-slate-300 font-black uppercase tracking-widest leading-none mb-1">In Stock</p>
-                            <p class="text-3xl font-black text-slate-900">${Math.round(f.weight_current)}<span class="text-sm font-normal text-slate-400 ml-1">g</span></p>
-                        </div>
-                        <button onclick="logManualUsage(${f.id})" class="bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white p-2 rounded-lg transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="3" stroke-linecap="round"/></svg>
-                        </button>
-                    </div>
+<!-- ADD SPOOL MODAL -->
+<div id="modal-overlay">
+    <div id="modal-box">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-black mono uppercase">Add Spool</h2>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-white text-xl leading-none">×</button>
+        </div>
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs mono text-gray-500 uppercase block mb-1">Brand</label>
+                    <input type="text" id="add-brand" placeholder="Bambu Lab">
                 </div>
-            `).join('');
+                <div>
+                    <label class="text-xs mono text-gray-500 uppercase block mb-1">Material</label>
+                    <input type="text" id="add-material" placeholder="PLA">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs mono text-gray-500 uppercase block mb-1">Colour</label>
+                    <input type="text" id="add-colour" placeholder="Charcoal">
+                </div>
+                <div>
+                    <label class="text-xs mono text-gray-500 uppercase block mb-1">Style</label>
+                    <input type="text" id="add-style" placeholder="Matte">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs mono text-gray-500 uppercase block mb-1">Weight (g)</label>
+                    <input type="number" id="add-weight" placeholder="1000" value="1000">
+                </div>
+                <div>
+                    <label class="text-xs mono text-gray-500 uppercase block mb-1">Colour Hex</label>
+                    <input type="text" id="add-hex" placeholder="#2a2a2a">
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeModal()" class="btn-ghost flex-1">Cancel</button>
+            <button onclick="submitAddSpool()" class="btn-primary flex-1">Add Spool</button>
+        </div>
+    </div>
+</div>
+
+<!-- LOG USAGE MODAL -->
+<div id="usage-modal-overlay" style="position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;width:100%;max-width:400px">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-black mono uppercase">Log Usage</h2>
+            <button onclick="closeUsageModal()" class="text-gray-500 hover:text-white text-xl leading-none">×</button>
+        </div>
+        <p id="usage-modal-label" class="text-sm text-gray-400 mb-4"></p>
+        <div>
+            <label class="text-xs mono text-gray-500 uppercase block mb-1">Grams Used</label>
+            <input type="number" id="usage-grams" placeholder="e.g. 45" min="1">
+        </div>
+        <div class="mt-3">
+            <label class="text-xs mono text-gray-500 uppercase block mb-1">Project Name (optional)</label>
+            <input type="text" id="usage-project" placeholder="My Print">
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeUsageModal()" class="btn-ghost flex-1">Cancel</button>
+            <button onclick="submitUsage()" class="btn-primary flex-1">Log Usage</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ===== STATE =====
+let filaments = [];
+let activeTab = 'dashboard';
+let usageTarget = null;
+let inStockFilter = false;
+
+// ===== COLOUR MAP (for common Bambu colours) =====
+const COLOUR_MAP = {
+    'apple green': '#7dc95e', 'ash grey': '#a0a0a0', 'bambu lab green': '#00ae42',
+    'black': '#1a1a1a', 'blue': '#1e6fcf', 'bright green': '#39d353',
+    'brown': '#7b4f2e', 'charcoal': '#3c3c3c', 'cyan': '#00b4d8',
+    'dark green': '#1a5c2a', 'desert tan': '#c2a97a', 'gold': '#d4a017',
+    'gray': '#8a8a8a', 'grey': '#8a8a8a', 'ivory white': '#f5f0e8',
+    'lemon yellow': '#f5e642', 'light blue': '#6cb4e4', 'orange': '#f5890a',
+    'pink': '#f472b6', 'purple': '#9333ea', 'red': '#dc2626',
+    'silver': '#c0c0c0', 'white': '#f8f8f8', 'yellow': '#facc15',
+    'matte black': '#1a1a1a', 'matte white': '#f0f0f0', 'bambu green': '#00ae42',
+    'jade white': '#e8f5e9', 'navy blue': '#1e3a5f', 'light grey': '#d1d5db',
+};
+function getColour(name) {
+    if (!name) return '#4f8ef7';
+    return COLOUR_MAP[name.toLowerCase()] || COLOUR_MAP[name.split(' ').pop()?.toLowerCase()] || '#4f8ef7';
+}
+
+// ===== MATERIAL BADGE COLOURS =====
+const MATERIAL_COLOURS = {
+    'PLA': { bg: 'rgba(79,142,247,0.15)', text: '#4f8ef7' },
+    'PETG': { bg: 'rgba(34,197,94,0.15)', text: '#22c55e' },
+    'ABS': { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b' },
+    'ASA': { bg: 'rgba(239,68,68,0.15)', text: '#ef4444' },
+    'TPU': { bg: 'rgba(168,85,247,0.15)', text: '#a855f7' },
+    'PA': { bg: 'rgba(20,184,166,0.15)', text: '#14b8a6' },
+    'PC': { bg: 'rgba(236,72,153,0.15)', text: '#ec4899' },
+};
+function getMaterialStyle(mat) {
+    return MATERIAL_COLOURS[mat?.toUpperCase()] || { bg: 'rgba(124,92,191,0.15)', text: '#7c5cbf' };
+}
+
+// ===== NAVIGATION =====
+function showTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('section[id^="tab-"]').forEach(s => s.classList.add('hidden'));
+    document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    document.getElementById('btn-' + tab).classList.add('active');
+    if (tab === 'inventory') renderInventory();
+    if (tab === 'usage') loadUsage();
+}
+
+// ===== API CALLS =====
+async function apiFetch(path, opts = {}) {
+    try {
+        const res = await fetch(path, opts);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    } catch (e) {
+        console.error('API error:', path, e);
+        throw e;
+    }
+}
+
+// ===== LOAD ALL DATA =====
+async function loadAll() {
+    try {
+        filaments = await apiFetch('/api/filaments');
+        updateStats();
+        renderDashboard();
+        if (activeTab === 'inventory') renderInventory();
+    } catch {
+        showToast('Could not load data — check your Cloudflare D1 setup.', 'error');
+        document.getElementById('db-status').textContent = 'ERROR';
+        document.getElementById('db-status').style.color = 'var(--red)';
+    }
+}
+
+// ===== STATS =====
+function updateStats() {
+    const total = filaments.length;
+    const totalGrams = filaments.reduce((a, f) => a + (parseFloat(f.weight_current) || 0), 0);
+    const lowStock = filaments.filter(f => {
+        const w = parseFloat(f.weight_current) || 0;
+        return w > 0 && w < 150;
+    }).length;
+    const materials = [...new Set(filaments.map(f => f.material).filter(Boolean))].length;
+
+    document.getElementById('stat-count').textContent = total;
+    document.getElementById('stat-weight').innerHTML = (totalGrams / 1000).toFixed(2) + '<span class="text-sm font-normal text-gray-500 ml-1">kg</span>';
+    document.getElementById('stat-low').textContent = lowStock;
+    document.getElementById('stat-types').textContent = materials;
+    document.getElementById('sys-low').textContent = lowStock;
+
+    // Health bar
+    const inStock = filaments.filter(f => (parseFloat(f.weight_current) || 0) >= 150).length;
+    const healthPct = total > 0 ? Math.round((inStock / total) * 100) : 0;
+    document.getElementById('health-bar').style.width = healthPct + '%';
+    document.getElementById('health-bar').style.background = healthPct > 70 ? 'var(--green)' : healthPct > 40 ? 'var(--orange)' : 'var(--red)';
+    document.getElementById('health-label').textContent = `${healthPct}% of spools well-stocked`;
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+    if (!filaments.length) return;
+
+    // Material breakdown chart
+    const byMaterial = {};
+    filaments.forEach(f => {
+        const mat = f.material || 'Unknown';
+        byMaterial[mat] = (byMaterial[mat] || 0) + 1;
+    });
+    const sorted = Object.entries(byMaterial).sort((a, b) => b[1] - a[1]);
+    const max = Math.max(...sorted.map(e => e[1]));
+
+    const chart = document.getElementById('material-chart');
+    const legend = document.getElementById('chart-legend');
+    const colours = ['#4f8ef7', '#22c55e', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6', '#ef4444'];
+
+    chart.innerHTML = sorted.map(([mat, count], i) => {
+        const h = Math.max(20, Math.round((count / max) * 160));
+        const c = colours[i % colours.length];
+        return `<div class="flex flex-col items-center gap-1 flex-1">
+            <span class="text-xs mono text-gray-400">${count}</span>
+            <div class="chart-bar w-full" style="height:${h}px; background:${c}; opacity:0.85"></div>
+            <span class="text-[10px] mono text-gray-500 text-center leading-tight">${mat}</span>
+        </div>`;
+    }).join('');
+
+    legend.innerHTML = sorted.map(([mat], i) => {
+        const c = colours[i % colours.length];
+        return `<div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 rounded-sm" style="background:${c}"></div>
+            <span class="text-xs text-gray-400">${mat}</span>
+        </div>`;
+    }).join('');
+
+    // Low stock alerts
+    const low = filaments.filter(f => {
+        const w = parseFloat(f.weight_current) || 0;
+        return w > 0 && w < 150;
+    });
+    const section = document.getElementById('low-stock-section');
+    const cards = document.getElementById('low-stock-cards');
+    if (low.length) {
+        section.classList.remove('hidden');
+        cards.innerHTML = low.map(f => spoolCardHTML(f, true)).join('');
+    } else {
+        section.classList.add('hidden');
+    }
+}
+
+// ===== INVENTORY =====
+function renderInventory() {
+    populateFilters();
+    filterCards();
+}
+
+function populateFilters() {
+    const materials = [...new Set(filaments.map(f => f.material).filter(Boolean))].sort();
+    const styles = [...new Set(filaments.map(f => f.style).filter(Boolean))].sort();
+
+    const mSel = document.getElementById('filter-material');
+    const sSel = document.getElementById('filter-style');
+    const mVal = mSel.value, sVal = sSel.value;
+
+    mSel.innerHTML = '<option value="">All Materials</option>' + materials.map(m => `<option value="${m}">${m}</option>`).join('');
+    sSel.innerHTML = '<option value="">All Styles</option>' + styles.map(s => `<option value="${s}">${s}</option>`).join('');
+    mSel.value = mVal; sSel.value = sVal;
+}
+
+function filterCards(mode) {
+    if (mode === 'in-stock') inStockFilter = !inStockFilter;
+    const search = document.getElementById('search-input').value.toLowerCase();
+    const mat = document.getElementById('filter-material').value;
+    const style = document.getElementById('filter-style').value;
+
+    let filtered = filaments.filter(f => {
+        const w = parseFloat(f.weight_current) || 0;
+        if (inStockFilter && w === 0) return false;
+        if (mat && f.material !== mat) return false;
+        if (style && f.style !== style) return false;
+        if (search) {
+            const haystack = `${f.brand} ${f.color_name} ${f.material} ${f.style}`.toLowerCase();
+            if (!haystack.includes(search)) return false;
         }
+        return true;
+    });
 
-        // 3. EXCEL IMPORT (Matching your headers: Brand, Colour, Material, etc.)
-        document.getElementById('excel-upload').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            const data = await file.arrayBuffer();
-            const workbook = XLSX.read(data);
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(sheet);
+    const grid = document.getElementById('filament-grid');
+    const noRes = document.getElementById('no-results');
 
-            const items = jsonData.map(row => ({
-                brand: row.Brand,
-                material: row.Material,
-                color_name: row.Colour, // Corrected for your "Colour" header
-                style: row.Style,
-                code: row.Code,
-                barcode: row.Barcode,
-                weight_current: 1000 // Default for new import
-            })).filter(i => i.brand);
+    if (!filtered.length) {
+        grid.innerHTML = '';
+        noRes.classList.remove('hidden');
+        return;
+    }
+    noRes.classList.add('hidden');
+    grid.innerHTML = filtered.map((f, i) => `<div class="fade-up" style="animation-delay:${i * 0.03}s">${spoolCardHTML(f)}</div>`).join('');
+}
 
-            await fetch('/api/filaments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'bulk_import', items })
-            });
-            loadFilaments();
+function spoolCardHTML(f, compact = false) {
+    const w = parseFloat(f.weight_current) || 0;
+    const pct = Math.min(100, Math.round((w / 1000) * 100));
+    const isLow = w > 0 && w < 150;
+    const isEmpty = w === 0;
+    const matStyle = getMaterialStyle(f.material);
+    const hexColour = f.color_hex || getColour(f.color_name);
+
+    return `<div class="spool-card p-6 ${isLow ? 'low-stock' : ''} ${isEmpty ? 'empty' : ''}" 
+                 style="--card-accent:${hexColour}">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <span class="badge mb-2" style="background:${matStyle.bg}; color:${matStyle.text}">${f.material || '?'}</span>
+                <h3 class="font-black text-white text-lg leading-tight">${f.brand || 'Unknown'}</h3>
+                <p class="text-sm text-gray-500 font-medium">${f.color_name || '—'} ${f.style ? '· ' + f.style : ''}</p>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+                <span class="color-chip" style="background:${hexColour}"></span>
+                ${f.id ? `<span class="text-[10px] mono text-gray-600">#${f.id}</span>` : ''}
+            </div>
+        </div>
+
+        <div class="border-t pt-4 mt-2" style="border-color:var(--border)">
+            <div class="flex justify-between items-end mb-2">
+                <div>
+                    <p class="text-[10px] mono text-gray-600 uppercase tracking-widest">In Stock</p>
+                    <p class="text-2xl font-black text-white mono">${Math.round(w)}<span class="text-sm font-normal text-gray-500 ml-1">g</span></p>
+                </div>
+                ${isEmpty ? '<span class="text-xs mono font-bold" style="color:var(--red)">EMPTY</span>' :
+                  isLow ? '<span class="text-xs mono font-bold" style="color:var(--orange)">LOW</span>' : ''}
+            </div>
+            <div class="progress-bg mb-3">
+                <div class="progress-fill" style="width:${pct}%; background:${isEmpty ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--green)'}"></div>
+            </div>
+            <div class="flex justify-between items-center">
+                ${f.web_address ? `<a href="${f.web_address}" target="_blank" class="text-xs mono text-gray-600 hover:text-blue-400 transition">↗ Buy</a>` : '<span></span>'}
+                <button onclick="openUsageModal(${f.id}, '${(f.brand || '').replace(/'/g,"\\'")} ${(f.color_name || '').replace(/'/g,"\\'")}', ${w})"
+                        class="text-xs btn-ghost py-1.5 px-3" ${isEmpty ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
+                    − Log Use
+                </button>
+            </div>
+        </div>
+    </div>`;
+}
+
+// ===== USAGE LOG =====
+async function loadUsage() {
+    try {
+        const data = await apiFetch('/api/usage');
+        const body = document.getElementById('usage-list');
+        if (!data.length) {
+            body.innerHTML = '<tr><td colspan="4" class="text-center text-gray-600 py-12">No usage records yet.</td></tr>';
+            return;
+        }
+        body.innerHTML = data.map(u => `<tr>
+            <td class="text-gray-400 mono text-xs">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
+            <td class="text-white font-medium">${u.project_name || '—'}</td>
+            <td class="text-gray-400">${u.filament_label || `Spool #${u.filament_id}`}</td>
+            <td class="mono font-bold" style="color:var(--orange)">${u.weight_used}g</td>
+        </tr>`).join('');
+    } catch {
+        showToast('Could not load usage log.', 'error');
+    }
+}
+
+// ===== EXCEL IMPORT =====
+document.getElementById('excel-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showToast('Reading Excel file…', '');
+
+    try {
+        const data = await file.arrayBuffer();
+        const wb = XLSX.read(data);
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        // Your file has a blank row 0, headers on row 1 → skipRows: 1
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, range: 1 });
+
+        const items = rows
+            .filter(r => r['Brand'])
+            .map(r => ({
+                brand: r['Brand'] || null,
+                material: r['Material'] || null,
+                color_name: r['Colour'] || null,
+                style: r['Style'] || null,
+                code: String(r['Code'] || ''),
+                barcode: String(r['Barcode'] || ''),
+                web_address: r['Web Address'] || null,
+                weight_current: (parseFloat(r['Amount In Stock']) || 1) * 1000,
+                total_purchased: parseFloat(r['Total Purchased']) || null,
+                color_hex: getColour(r['Colour']),
+            }));
+
+        if (!items.length) { showToast('No valid rows found in spreadsheet.', 'error'); return; }
+
+        await apiFetch('/api/filaments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'bulk_import', items })
         });
 
-        // 4. BAMBU 3MF LOGGING
-        document.getElementById('threemf-upload').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            const zip = await JSZip.loadAsync(file);
-            let filamentGrams = 0;
+        showToast(`✓ Imported ${items.length} filaments`, 'success');
+        await loadAll();
+    } catch (err) {
+        showToast('Import failed: ' + err.message, 'error');
+    }
+    e.target.value = '';
+});
 
-            for (let name of Object.keys(zip.files)) {
-                if (name.endsWith('.gcode')) {
-                    const content = await zip.file(name).async("string");
-                    const match = content.match(/filament used \[g\]\s*=\s*([\d.]+)/);
-                    if (match) { 
-                        filamentGrams = parseFloat(match[1]); 
-                        break; 
-                    }
-                }
-            }
+// ===== 3MF LOGGING =====
+document.getElementById('threemf-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showToast('Parsing 3MF file…', '');
 
-            if (filamentGrams > 0) {
-                const spoolId = prompt(`" ${file.name} " uses ${filamentGrams}g.\n\nEnter Spool ID to subtract from:`);
-                if (spoolId) {
-                    await fetch(`/api/usage`, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'log_usage', filament_id: spoolId, grams: filamentGrams, project: file.name })
-                    });
-                    loadFilaments();
-                }
-            } else {
-                alert("Weight data missing. Ensure project was saved after slicing in Bambu Studio.");
-            }
-        });
+    try {
+        const zip = await JSZip.loadAsync(file);
+        let filamentGrams = 0;
+        let filamentId = null;
 
-        function logManualUsage(id) {
-            const used = prompt("Grams to subtract:");
-            if (used) {
-                fetch(`/api/usage`, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'log_usage', filament_id: id, grams: used, project: "Manual Correction" })
-                }).then(() => loadFilaments());
+        // Search gcode file for filament usage
+        for (const [name, entry] of Object.entries(zip.files)) {
+            if (name.endsWith('.gcode') || name.includes('plate')) {
+                const content = await entry.async('string');
+                // Bambu Studio format
+                const match = content.match(/; filament used \[g\]\s*=\s*([\d.]+)/i)
+                           || content.match(/filament_used_g\s*=\s*([\d.]+)/i)
+                           || content.match(/total filament used \[g\]\s*=\s*([\d.]+)/i);
+                if (match) { filamentGrams = parseFloat(match[1]); break; }
             }
         }
 
-        // Initialize
-        showTab('dashboard');
-    </script>
+        // Try to read filament config from 3MF metadata
+        for (const [name, entry] of Object.entries(zip.files)) {
+            if (name.includes('config') || name.includes('metadata')) {
+                const content = await entry.async('string');
+                const idMatch = content.match(/filament_id["\s:=]+(\d+)/i);
+                if (idMatch) { filamentId = idMatch[1]; break; }
+            }
+        }
+
+        if (filamentGrams <= 0) {
+            showToast('No weight data found — ensure project was sliced in Bambu Studio first.', 'error');
+            e.target.value = '';
+            return;
+        }
+
+        // Show usage modal pre-filled with project name
+        usageTarget = { id: filamentId, label: file.name.replace('.3mf', ''), prefill: filamentGrams, project: file.name.replace('.3mf', '') };
+        document.getElementById('usage-modal-label').textContent = `"${file.name}" used ${filamentGrams}g. Select spool to deduct from:`;
+        document.getElementById('usage-grams').value = filamentGrams;
+        document.getElementById('usage-project').value = file.name.replace('.3mf', '');
+        
+        // If we have a spool ID from metadata, prefill it
+        openUsageModal(filamentId, file.name.replace('.3mf', ''), 0, filamentGrams, file.name.replace('.3mf', ''));
+        
+    } catch (err) {
+        showToast('3MF parsing failed: ' + err.message, 'error');
+    }
+    e.target.value = '';
+});
+
+// ===== USAGE MODAL =====
+function openUsageModal(id, label, currentWeight, prefillGrams = null, prefillProject = null) {
+    usageTarget = { id, label };
+    document.getElementById('usage-modal-label').textContent = `Logging use for: ${label} (${Math.round(currentWeight)}g remaining)`;
+    document.getElementById('usage-grams').value = prefillGrams || '';
+    document.getElementById('usage-project').value = prefillProject || '';
+    document.getElementById('usage-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('usage-grams').focus(), 50);
+}
+function closeUsageModal() {
+    document.getElementById('usage-modal-overlay').style.display = 'none';
+    usageTarget = null;
+}
+async function submitUsage() {
+    if (!usageTarget?.id) { showToast('No spool selected.', 'error'); return; }
+    const grams = parseFloat(document.getElementById('usage-grams').value);
+    const project = document.getElementById('usage-project').value || 'Manual';
+    if (!grams || grams <= 0) { showToast('Enter a valid weight.', 'error'); return; }
+
+    try {
+        await apiFetch('/api/usage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filament_id: usageTarget.id, grams, project })
+        });
+        showToast(`✓ Logged ${grams}g from ${usageTarget.label}`, 'success');
+        closeUsageModal();
+        await loadAll();
+    } catch {
+        showToast('Could not log usage.', 'error');
+    }
+}
+
+// ===== ADD SPOOL MODAL =====
+function openAddModal() {
+    document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+}
+async function submitAddSpool() {
+    const item = {
+        brand: document.getElementById('add-brand').value,
+        material: document.getElementById('add-material').value,
+        color_name: document.getElementById('add-colour').value,
+        style: document.getElementById('add-style').value,
+        weight_current: parseFloat(document.getElementById('add-weight').value) || 1000,
+        color_hex: document.getElementById('add-hex').value || getColour(document.getElementById('add-colour').value),
+    };
+    if (!item.brand) { showToast('Brand is required.', 'error'); return; }
+    try {
+        await apiFetch('/api/filaments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add_single', item })
+        });
+        showToast('✓ Spool added', 'success');
+        closeModal();
+        await loadAll();
+    } catch {
+        showToast('Could not add spool.', 'error');
+    }
+}
+
+// ===== TOAST =====
+let toastTimer;
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.className = '', 3500);
+}
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(); closeUsageModal(); }
+});
+
+// ===== INIT =====
+loadAll();
+</script>
 </body>
 </html>
