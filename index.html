@@ -1,67 +1,170 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Filament Tracker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filament Tracker Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; }
-        .card { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
-        .controls { display: flex; gap: 10px; margin-bottom: 20px; background: #f4f4f4; padding: 15px; }
+        .active-tab { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
     </style>
 </head>
-<body>
-    <h1>My Spool Inventory</h1>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
 
-    <div class="controls">
-        <section>
-            <h3>Import Excel</h3>
-            <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" />
-        </section>
-        <section>
-            <h3>Add Manually</h3>
-            <button onclick="addManual()">+ New Spool</button>
-        </section>
-    </div>
+    <header class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
+                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Total Filaments</p>
+                <h2 id="stat-count" class="text-3xl font-bold text-blue-600">0</h2>
+                <p class="text-xs text-slate-400 mt-1">Active inventory</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
+                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Total Weight</p>
+                <h2 id="stat-weight" class="text-3xl font-bold text-green-600">0.0 kg</h2>
+                <p class="text-xs text-slate-400 mt-1">Filament on hand</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
+                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Low Stock</p>
+                <h2 id="stat-low" class="text-3xl font-bold text-orange-500">0</h2>
+                <p class="text-xs text-slate-400 mt-1">Under 150g</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
+                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Material Types</p>
+                <h2 id="stat-types" class="text-3xl font-bold text-purple-600">0</h2>
+                <p class="text-xs text-slate-400 mt-1">PLA, PETG, etc.</p>
+            </div>
+        </div>
+    </header>
 
-    <div id="spool-list">Loading spools...</div>
+    <nav class="max-w-7xl mx-auto px-4 mb-6">
+        <div class="bg-white rounded-lg p-1 flex space-x-1 card-shadow border border-slate-200">
+            <button onclick="showTab('dashboard')" id="btn-dashboard" class="flex-1 py-2 rounded-md active-tab">Dashboard</button>
+            <button onclick="showTab('filaments')" id="btn-filaments" class="flex-1 py-2 rounded-md">Filaments</button>
+            <button onclick="showTab('usage')" id="btn-usage" class="flex-1 py-2 rounded-md">Usage</button>
+            <button onclick="showTab('tests')" id="btn-tests" class="flex-1 py-2 rounded-md">Tests</button>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 pb-12">
+        
+        <section id="tab-filaments" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Filament Inventory</h1>
+                <div class="flex gap-2">
+                    <label class="bg-white border px-4 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+                        Import Excel <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
+                    </label>
+                    <button onclick="openAddModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800">+ Add Filament</button>
+                </div>
+            </div>
+            <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                </div>
+        </section>
+
+        <section id="tab-usage" class="hidden">
+            <h1 class="text-2xl font-bold mb-4">Usage Logs</h1>
+            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b">
+                        <tr>
+                            <th class="p-4 font-semibold">Date</th>
+                            <th class="p-4 font-semibold">Project</th>
+                            <th class="p-4 font-semibold">Filament</th>
+                            <th class="p-4 font-semibold">Weight Used</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usage-list"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-dashboard">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-8 rounded-xl border border-slate-100 card-shadow h-64 flex flex-col items-center justify-center text-center">
+                    <h3 class="text-lg font-semibold mb-2">Material Breakdown</h3>
+                    <div id="chart-placeholder" class="text-slate-400">Charts will render here based on DB data</div>
+                </div>
+                <div class="bg-white p-8 rounded-xl border border-slate-100 card-shadow">
+                    <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
+                    <ul class="space-y-3">
+                        <li><button class="text-blue-600 hover:underline">Log Usage from P1S Print</button></li>
+                        <li><button class="text-blue-600 hover:underline">Run Flow Rate Test</button></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <script>
-        // 1. Fetch and Display Spools
-        async function loadSpools() {
+        // TAB NAVIGATION
+        function showTab(tabName) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            document.getElementById('btn-' + tabName).classList.add('active-tab');
+            if (tabName === 'filaments') loadFilaments();
+            if (tabName === 'usage') loadUsage();
+        }
+
+        // FETCH FILAMENTS
+        async function loadFilaments() {
             const res = await fetch('/api/filaments');
             const data = await res.json();
-            const container = document.getElementById('spool-list');
-            container.innerHTML = data.map(s => `
-                <div class="card">
-                    <strong>${s.brand}</strong> - ${s.material} (${s.color_name})
-                    <br>Current Weight: <b>${s.weight_current}g</b>
+            
+            // Update Header Stats
+            document.getElementById('stat-count').innerText = data.length;
+            const totalGrams = data.reduce((acc, curr) => acc + (curr.weight_current || 0), 0);
+            document.getElementById('stat-weight').innerText = (totalGrams / 1000).toFixed(1) + " kg";
+            document.getElementById('stat-low').innerText = data.filter(f => f.weight_current < 150).length;
+            
+            const grid = document.getElementById('filament-grid');
+            grid.innerHTML = data.map(f => `
+                <div class="bg-white p-5 rounded-xl border border-slate-200 card-shadow">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-xs font-bold text-blue-500 uppercase">${f.material}</span>
+                            <h3 class="text-lg font-bold">${f.brand}</h3>
+                            <p class="text-slate-500 text-sm">${f.color_name}</p>
+                        </div>
+                        <div class="w-8 h-8 rounded-full border shadow-sm" style="background-color: ${f.color_hex || '#ddd'}"></div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t flex justify-between items-end">
+                        <div>
+                            <p class="text-xs text-slate-400">Remaining</p>
+                            <p class="text-xl font-mono font-bold">${f.weight_current}g</p>
+                        </div>
+                        <button onclick="logUsagePrompt(${f.id})" class="text-xs bg-slate-100 px-3 py-1 rounded hover:bg-slate-200 transition">Log Usage</button>
+                    </div>
                 </div>
             `).join('');
         }
 
-        // 2. Handle Excel Import
+        // EXCEL IMPORT LOGIC
         document.getElementById('excel-upload').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-            // Mapping Excel columns to DB names
             const formatted = jsonData.map(row => ({
-                brand: row.Brand || 'Unknown',
-                material: row.Material || 'PLA',
-                color_name: row.Color || 'Natural',
-                weight_current: row.Weight || 1000
+                brand: row.Brand || row.brand || 'Generic',
+                material: row.Material || row.material || 'PLA',
+                color_name: row.Color || row.color_name || 'Natural',
+                weight_current: row.Weight || row.weight_current || 1000
             }));
 
             await fetch('/api/filaments', {
                 method: 'POST',
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(formatted)
             });
-            loadSpools();
+            loadFilaments();
         });
 
-        loadSpools();
+        // Initialize
+        showTab('dashboard');
     </script>
 </body>
 </html>
