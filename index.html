@@ -1282,8 +1282,8 @@
         <div class="flex justify-between items-start mb-3">
             <div style="flex:1;min-width:0">
                 <span class="badge mb-2" style="background:${ms.bg};color:${ms.text}">${f.material || '?'}</span>
-                <h3 class="font-black text-lg leading-tight" style="color:var(--text)">${f.brand || 'Unknown'}</h3>
-                <p class="text-sm font-medium mt-0.5 truncate" style="color:var(--text2)">${f.color_name || '—'}${f.style ? ' · ' + f.style : ''}</p>
+                <h3 class="font-black text-lg leading-tight" style="color:var(--text)">${f.color_name || 'Unknown'}${f.style ? ' · ' + f.style : ''}</h3>
+                <p class="text-sm font-medium mt-0.5 truncate" style="color:var(--text2)">${f.brand || '—'}</p>
             </div>
             <div class="flex flex-col items-end gap-2 ml-3">
                 <span class="color-chip" style="background:${hex}"></span>
@@ -1524,105 +1524,97 @@
             try {
                 const zip = await JSZip.loadAsync(file);
                 const allFiles = Object.keys(zip.files);
-                console.log('[3MF] Files in archive:', allFiles);
-
-                let filamentGrams = 0;
                 const projectName = file.name.replace(/\.3mf$/i, '');
 
-                // ── STRATEGY 1: Bambu slice_info.config (most reliable) ──
-                // Contains: <filament_weight value="12.34" />  or filament_weight="12.34"
-                const sliceInfoPath = allFiles.find(n => n.toLowerCase().includes('slice_info'));
-                if (sliceInfoPath) {
-                    const txt = await zip.files[sliceInfoPath].async('string');
-                    console.log('[3MF] slice_info.config snippet:', txt.slice(0, 800));
+                let filamentGrams = 0;
+                let perSlot = []; // [{grams, colour, material}]
 
-                    // Sum all <filament weight="xx" /> entries
-                    const weightMatches = [...txt.matchAll(/weight\s*=\s*"([0-9.]+)"/gi)];
-                    if (weightMatches.length) {
-                        filamentGrams = weightMatches.reduce((sum, m) => sum + parseFloat(m[1]), 0);
-                        console.log('[3MF] slice_info weight matches:', weightMatches.map(m => m[1]), '→', filamentGrams);
-                    }
+                // ── STRATEGY 1: filament_volume_map + filament_density (most accurate for sliced files) ──
+                const projCfgPath = allFiles.find(n => n.toLowerCase().includes('project_settings'));
+                if (projCfgPath) {
+                    try {
+                        const cfg = JSON.parse(await zip.files[projCfgPath].async('string'));
+                        const volMap = (cfg.filament_volume_map || []).map(v => parseFloat(v) || 0);
+                        const densities = (cfg.filament_density || []).map(v => parseFloat(v) || 1.24);
+                        const colours = cfg.filament_colour || [];
+                        const types = cfg.filament_type || [];
 
-                    // Fallback: single filament_weight value
-                    if (!filamentGrams) {
-                        const single = txt.match(/filament_weight[^0-9]*([0-9.]+)/i);
-                        if (single) filamentGrams = parseFloat(single[1]);
-                    }
-                }
+                        // volume is in mm³, density in g/cm³ → weight(g) = vol(mm³) * density / 1000
+                        const weights = volMap.map((vol, i) => ({
+                            grams: Math.round((vol * (densities[i] || 1.24) / 1000) * 10) / 10,
+                            colour: colours[i] || null,
+                            material: types[i] || 'PLA'
+                        })).filter(s => s.grams > 0);
 
-                // ── STRATEGY 2: model_settings.config ──
-                if (!filamentGrams) {
-                    const modelCfgPath = allFiles.find(n => n.toLowerCase().includes('model_settings'));
-                    if (modelCfgPath) {
-                        const txt = await zip.files[modelCfgPath].async('string');
-                        console.log('[3MF] model_settings snippet:', txt.slice(0, 600));
-                        const m = txt.match(/filament_used\s*=\s*([0-9.]+)/)
-                                || txt.match(/estimated_weight\s*=\s*([0-9.]+)/);
-                        if (m) filamentGrams = parseFloat(m[1]);
-                    }
-                }
-
-                // ── STRATEGY 3: Any .gcode / .bgcode file embedded ──
-                if (!filamentGrams) {
-                    for (const name of allFiles) {
-                        if (zip.files[name].dir) continue;
-                        const lower = name.toLowerCase();
-                        if (!lower.endsWith('.gcode') && !lower.endsWith('.bgcode') && !lower.includes('gcode')) continue;
-
-                        // bgcode is binary — skip it, only read plain gcode
-                        if (lower.endsWith('.bgcode')) {
-                            console.log('[3MF] Skipping binary bgcode:', name);
-                            continue;
+                        if (weights.length) {
+                            perSlot = weights;
+                            filamentGrams = weights.reduce((a, b) => a + b.grams, 0);
+                            console.log('[3MF] filament_volume_map slots:', weights);
                         }
 
+                        // Even if no weight data, capture slot colours for manual entry UI
+                        if (!perSlot.length && colours.length) {
+                            perSlot = colours.map((colour, i) => ({
+                                grams: 0,
+                                colour: colour,
+                                material: types[i] || 'PLA'
+                            }));
+                            console.log('[3MF] No slice data — captured', perSlot.length, 'colour slots');
+                        }
+                    } catch(err) {
+                        console.warn('[3MF] project_settings parse failed:', err);
+                    }
+                }
+
+                // ── STRATEGY 2: slice_info.config weight attributes ──
+                if (!filamentGrams) {
+                    const sliceInfoPath = allFiles.find(n => n.toLowerCase().includes('slice_info'));
+                    if (sliceInfoPath) {
+                        const txt = await zip.files[sliceInfoPath].async('string');
+                        const weightMatches = [...txt.matchAll(/weight\s*=\s*"([0-9.]+)"/gi)];
+                        if (weightMatches.length) {
+                            filamentGrams = weightMatches.reduce((sum, m) => sum + parseFloat(m[1]), 0);
+                            console.log('[3MF] slice_info weights:', weightMatches.map(m=>m[1]), '→', filamentGrams);
+                        }
+                    }
+                }
+
+                // ── STRATEGY 3: Plain .gcode only (NOT bgcode) ──
+                if (!filamentGrams) {
+                    for (const name of allFiles) {
+                        if (zip.files[name].dir || name.toLowerCase().endsWith('.bgcode')) continue;
+                        if (!name.toLowerCase().includes('gcode')) continue;
                         const content = await zip.files[name].async('string');
-                        const patterns = [
-                            /; filament used \[g\]\s*=\s*([\d.,\s]+)/i,
-                            /filament_used_g\s*=\s*([\d.]+)/i,
-                            /; total filament used \[g\]\s*=\s*([\d.]+)/i,
-                        ];
-                        for (const pat of patterns) {
-                            const m = content.match(pat);
-                            if (m) {
-                                // Could be comma-separated multi-filament list
-                                const parts = m[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
-                                filamentGrams = parts.reduce((a, b) => a + b, 0);
-                                console.log('[3MF] gcode match:', m[1], '→', filamentGrams);
-                                break;
-                            }
-                        }
-                        if (filamentGrams > 0) break;
-                    }
-                }
-
-                // ── STRATEGY 4: Scan every XML file for any weight-like key ──
-                if (!filamentGrams) {
-                    for (const name of allFiles) {
-                        if (zip.files[name].dir) continue;
-                        const lower = name.toLowerCase();
-                        if (!lower.endsWith('.xml') && !lower.endsWith('.config') && !lower.endsWith('.json')) continue;
-                        const txt = await zip.files[name].async('string');
-                        const m = txt.match(/"filament_weight"\s*:\s*"?([0-9.]+)"?/i)
-                                || txt.match(/filament_weight[^0-9]*([0-9.]+)/i)
-                                || txt.match(/weight[^0-9]*([0-9.]+)/i);
-                        if (m && parseFloat(m[1]) > 0) {
-                            filamentGrams = parseFloat(m[1]);
-                            console.log('[3MF] Fallback scan found in', name, ':', filamentGrams);
-                            break;
+                        const m = content.match(/; filament used \[g\]\s*=\s*([\d.,\s]+)/i)
+                                || content.match(/filament_used_g\s*=\s*([\d.]+)/i);
+                        if (m) {
+                            const parts = m[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
+                            filamentGrams = parts.reduce((a, b) => a + b, 0);
+                            console.log('[3MF] gcode match:', m[1], '→', filamentGrams);
+                            if (filamentGrams > 0) break;
                         }
                     }
                 }
 
-                console.log('[3MF] Final grams:', filamentGrams);
+                filamentGrams = Math.round(filamentGrams * 10) / 10;
+                console.log('[3MF] Final:', filamentGrams, 'g,', perSlot.length, 'slots');
 
-                if (filamentGrams <= 0) {
-                    // Show modal anyway so user can enter manually
-                    showToast('No weight auto-detected — enter manually below.', 'info');
-                    openUsageModal(null, projectName, null, null, projectName);
-                } else {
-                    filamentGrams = Math.round(filamentGrams * 10) / 10;
+                if (filamentGrams > 0 && perSlot.length <= 1) {
+                    // Single filament, auto-fill
                     showToast(`Found ${filamentGrams}g in 3MF`, 'success');
                     openUsageModal(null, projectName, null, filamentGrams, projectName);
+                } else if (filamentGrams > 0 && perSlot.length > 1) {
+                    // Multi-colour with real weights — show per-slot modal
+                    showToast(`Found ${filamentGrams}g across ${perSlot.length} filaments`, 'success');
+                    openMultiSlotModal(projectName, perSlot);
+                } else if (perSlot.length > 1) {
+                    // Not sliced but has multiple colour slots — let user enter per-slot
+                    showToast(`${perSlot.length} filament slots found — enter grams used per colour`, 'info');
+                    openMultiSlotModal(projectName, perSlot);
+                } else {
+                    // Nothing found at all
+                    showToast('No filament data found — enter grams manually', 'info');
+                    openUsageModal(null, projectName, null, null, projectName);
                 }
             } catch (err) {
                 console.error('[3MF] Parse error:', err);
@@ -1632,9 +1624,111 @@
         });
 
         // ============================================================
+        // MULTI-SLOT MODAL (multi-colour 3MF logging)
+        // ============================================================
+        function openMultiSlotModal(projectName, slots) {
+            // Re-use the usage modal overlay but inject custom content
+            const overlay = document.getElementById('usage-modal-overlay');
+            const box = overlay.querySelector('.modal-box');
+
+            const inStock = filaments.filter(f => (parseFloat(f.weight_current) || 0) > 0);
+            const spoolOptions = '<option value="">— skip —</option>' +
+                inStock.map(f => `<option value="${f.id}">${f.brand} ${f.color_name} · ${f.material}${f.style ? ' '+f.style : ''} (${Math.round(f.weight_current)}g)</option>`).join('');
+
+            box.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-black mono uppercase" style="color:var(--text)">Log Multi-Colour Print</h2>
+                    <button onclick="closeUsageModal()" class="text-xl leading-none" style="color:var(--muted)">×</button>
+                </div>
+                <p class="text-sm mb-5" style="color:var(--text2)">Project: <strong>${projectName}</strong> — assign each colour slot to a spool and confirm grams used.</p>
+                <div id="slot-rows" class="space-y-4 mb-6">
+                    ${slots.map((slot, i) => `
+                        <div class="p-3 rounded-xl" style="background:var(--surface2);border:1px solid var(--border)">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span style="width:20px;height:20px;border-radius:6px;background:${slot.colour || '#888'};border:2px solid rgba(128,128,128,0.3);flex-shrink:0;display:inline-block"></span>
+                                <span class="text-xs font-bold mono uppercase" style="color:var(--text2)">Slot ${i+1} · ${slot.material}${slot.colour ? ' · '+slot.colour : ''}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-[10px] mono uppercase block mb-1" style="color:var(--muted)">Spool</label>
+                                    <select id="slot-spool-${i}" style="width:100%;font-size:12px">${spoolOptions}</select>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] mono uppercase block mb-1" style="color:var(--muted)">Grams Used</label>
+                                    <input type="number" id="slot-grams-${i}" value="${slot.grams || ''}" placeholder="e.g. 5" min="0" step="0.1" style="font-size:12px">
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeUsageModal()" class="btn-ghost flex-1">Cancel</button>
+                    <button onclick="submitMultiSlot('${projectName}', ${slots.length})" class="btn-primary flex-1">Log All Slots</button>
+                </div>
+            `;
+            overlay.classList.add('open');
+        }
+
+        async function submitMultiSlot(projectName, slotCount) {
+            let logged = 0, errors = 0;
+            for (let i = 0; i < slotCount; i++) {
+                const spoolId = document.getElementById(`slot-spool-${i}`)?.value;
+                const grams = parseFloat(document.getElementById(`slot-grams-${i}`)?.value);
+                if (!spoolId || !grams || grams <= 0) continue;
+                try {
+                    await apiFetch('/api/usage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filament_id: parseInt(spoolId), grams, project: projectName })
+                    });
+                    logged++;
+                } catch { errors++; }
+            }
+            closeUsageModal();
+            if (logged > 0) {
+                showToast(`✓ Logged ${logged} slot${logged > 1 ? 's' : ''} for "${projectName}"`, 'success');
+                await loadAll();
+            }
+            if (errors > 0) showToast(`${errors} slot(s) failed to log`, 'error');
+        }
+
+        // ============================================================
         // USAGE MODAL
         // ============================================================
+        const USAGE_MODAL_HTML = `
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-black mono uppercase" style="color:var(--text)">Log Usage</h2>
+                <button onclick="closeUsageModal()" class="text-xl leading-none" style="color:var(--muted)">×</button>
+            </div>
+            <p id="usage-modal-label" class="text-sm mb-5 leading-relaxed" style="color:var(--text2)"></p>
+            <div class="space-y-4">
+                <div id="usage-picker-row">
+                    <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Spool</label>
+                    <select id="usage-spool-picker" style="width:100%">
+                        <option value="">— Select spool —</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Grams Used</label>
+                    <input type="number" id="usage-grams" placeholder="e.g. 45" min="1" step="0.1">
+                </div>
+                <div>
+                    <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Project Name (optional)</label>
+                    <input type="text" id="usage-project" placeholder="My Print">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeUsageModal()" class="btn-ghost flex-1">Cancel</button>
+                <button onclick="submitUsage()" class="btn-primary flex-1">Log Usage</button>
+            </div>`;
+
         function openUsageModal(spoolId, name, currentW, prefillGrams = null, prefillProject = null) {
+            // Restore original modal HTML in case multi-slot modal replaced it
+            const box = document.querySelector('#usage-modal-overlay .modal-box');
+            if (!document.getElementById('usage-spool-picker')) {
+                box.innerHTML = USAGE_MODAL_HTML;
+            }
+
             const picker = document.getElementById('usage-spool-picker');
             const inStock = filaments.filter(f => (parseFloat(f.weight_current) || 0) > 0);
 
