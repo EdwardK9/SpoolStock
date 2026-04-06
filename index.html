@@ -888,7 +888,8 @@
 
     <!-- ======= SPOOL DETAIL SIDEBAR ======= -->
     <div id="sidebar-overlay" onclick="closeSidebar()"
-        style="display:none;position:fixed;inset:0;z-index:200;background:var(--modal-bg);backdrop-filter:blur(4px)"></div>
+        style="display:none;position:fixed;inset:0;z-index:200;background:var(--modal-bg);backdrop-filter:blur(4px)">
+    </div>
 
     <aside id="sidebar" style="
         position:fixed;top:0;right:0;bottom:0;z-index:201;
@@ -914,7 +915,8 @@
                 </div>
                 <div class="flex items-center gap-3 ml-4">
                     <span id="sb-chip" class="color-chip" style="width:36px;height:36px;border-radius:10px"></span>
-                    <button onclick="closeSidebar()" style="color:var(--muted);font-size:22px;line-height:1;background:none;border:none;cursor:pointer">×</button>
+                    <button onclick="closeSidebar()"
+                        style="color:var(--muted);font-size:22px;line-height:1;background:none;border:none;cursor:pointer">×</button>
                 </div>
             </div>
         </div>
@@ -926,7 +928,8 @@
             <div style="margin-bottom:28px">
                 <div class="flex justify-between items-end mb-2">
                     <span class="text-xs mono uppercase tracking-widest" style="color:var(--muted)">In Stock</span>
-                    <span id="sb-weight" class="text-3xl font-black mono" style="color:var(--text)">—<span class="text-sm font-normal ml-1" style="color:var(--muted)">g</span></span>
+                    <span id="sb-weight" class="text-3xl font-black mono" style="color:var(--text)">—<span
+                            class="text-sm font-normal ml-1" style="color:var(--muted)">g</span></span>
                 </div>
                 <div class="progress-bg">
                     <div id="sb-progress" class="progress-fill" style="width:0%;background:var(--green)"></div>
@@ -952,7 +955,8 @@
                     <p id="sb-code" class="text-sm font-bold mono" style="color:var(--text)">—</p>
                 </div>
                 <div class="stat-card" style="padding:14px 16px">
-                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Total Bought</p>
+                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Total Bought
+                    </p>
                     <p id="sb-total" class="text-sm font-bold mono" style="color:var(--text)">—</p>
                 </div>
             </div>
@@ -1267,29 +1271,29 @@
 
             return `<div class="spool-card p-5 ${isLow ? 'low-stock' : ''} ${isEmpty ? 'empty' : ''}" style="--card-accent:${hex};cursor:pointer"
                 data-id="${f.id}"
-                data-brand="${(f.brand||'').replace(/"/g,'&quot;')}"
-                data-material="${(f.material||'').replace(/"/g,'&quot;')}"
-                data-color-name="${(f.color_name||'').replace(/"/g,'&quot;')}"
-                data-style="${(f.style||'').replace(/"/g,'&quot;')}"
-                data-code="${(f.code||'').replace(/"/g,'&quot;')}"
-                data-barcode="${(f.barcode||'').replace(/"/g,'&quot;')}"
-                data-web-address="${(f.web_address||'').replace(/"/g,'&quot;')}"
+                data-brand="${(f.brand || '').replace(/"/g, '&quot;')}"
+                data-material="${(f.material || '').replace(/"/g, '&quot;')}"
+                data-color-name="${(f.color_name || '').replace(/"/g, '&quot;')}"
+                data-style="${(f.style || '').replace(/"/g, '&quot;')}"
+                data-code="${(f.code || '').replace(/"/g, '&quot;')}"
+                data-barcode="${(f.barcode || '').replace(/"/g, '&quot;')}"
+                data-web-address="${(f.web_address || '').replace(/"/g, '&quot;')}"
                 data-weight-current="${w}"
                 data-total-purchased="${total}"
                 data-hex="${hex}"
                 onclick="openSidebar(this)"
-            >
-        <div class="flex justify-between items-start mb-3">
-            <div style="flex:1;min-width:0">
-                <span class="badge mb-2" style="background:${ms.bg};color:${ms.text}">${f.material || '?'}</span>
-                <h3 class="font-black text-lg leading-tight" style="color:var(--text)">${f.brand || 'Unknown'}</h3>
-                <p class="text-sm font-medium mt-0.5 truncate" style="color:var(--text2)">${f.color_name || '—'}${f.style ? ' · ' + f.style : ''}</p>
-            </div>
-            <div class="flex flex-col items-end gap-2 ml-3">
-                <span class="color-chip" style="background:${hex}"></span>
-                ${f.id ? `<span class="text-[10px] mono" style="color:var(--muted)">#${f.id}</span>` : ''}
-            </div>
-        </div>
+                >
+                <div class="flex justify-between items-start mb-3">
+                    <div style="flex:1;min-width:0">
+                        <h3 class="font-black text-lg leading-tight" style="color:var(--text)">${f.color_name || 'Unknown'}</h3>
+                        <p class="text-sm font-medium mt-0.5 truncate" style="color:var(--text2)">${f.style ? `· ${f.style}` : ''} | ${f.brand || '?'}</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-2 ml-3">
+                        <span class="color-chip" style="background:${hex}"></span>
+                        ${f.id ? `<span class="text-[10px] mono" style="color:var(--muted)">#${f.id}</span>` : ''}
+                    </div>
+                </div>
+
 
         <div class="border-t pt-3 mt-1" style="border-color:var(--border)">
             <div class="flex justify-between items-end mb-2">
@@ -1719,17 +1723,17 @@
         // SIDEBAR
         // ============================================================
         function openSidebar(cardEl) {
-            const id       = cardEl.dataset.id;
-            const brand    = cardEl.dataset.brand;
+            const id = cardEl.dataset.id;
+            const brand = cardEl.dataset.brand;
             const material = cardEl.dataset.material;
-            const colorName= cardEl.dataset.colorName;
-            const style    = cardEl.dataset.style;
-            const code     = cardEl.dataset.code;
-            const barcode  = cardEl.dataset.barcode;
-            const webAddr  = cardEl.dataset.webAddress;
-            const weight   = parseFloat(cardEl.dataset.weightCurrent) || 0;
-            const total    = parseFloat(cardEl.dataset.totalPurchased) || 0;
-            const hex      = cardEl.dataset.hex || '#4f8ef7';
+            const colorName = cardEl.dataset.colorName;
+            const style = cardEl.dataset.style;
+            const code = cardEl.dataset.code;
+            const barcode = cardEl.dataset.barcode;
+            const webAddr = cardEl.dataset.webAddress;
+            const weight = parseFloat(cardEl.dataset.weightCurrent) || 0;
+            const total = parseFloat(cardEl.dataset.totalPurchased) || 0;
+            const hex = cardEl.dataset.hex || '#4f8ef7';
 
             // Accent bar
             document.getElementById('sb-accent-bar').style.background = hex;
@@ -1792,7 +1796,7 @@
                         <div class="flex justify-between items-center py-2.5" style="border-bottom:1px solid var(--border)">
                             <div>
                                 <p class="text-sm font-medium" style="color:var(--text)">${u.project_name || 'Manual'}</p>
-                                <p class="text-xs mono" style="color:var(--muted)">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : ''}</p>
+                                <p class="text-xs mono" style="color:var(--muted)">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
                             </div>
                             <span class="text-sm font-black mono" style="color:var(--orange)">−${u.weight_used}g</span>
                         </div>
