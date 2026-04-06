@@ -15,10 +15,10 @@ CREATE TABLE IF NOT EXISTS filaments (
     color_name      TEXT,
     color_hex       TEXT,
     style           TEXT,
-    code            TEXT,          -- your numeric code (e.g. 11502)
+    code            TEXT,          
     barcode         TEXT,
     web_address     TEXT,
-    weight_current  REAL NOT NULL DEFAULT 1000,  -- grams remaining
+    weight_current  REAL NOT NULL DEFAULT 1000,
     total_purchased INTEGER,
     last_updated    TEXT DEFAULT (datetime('now'))
 );
