@@ -1310,7 +1310,7 @@
                 const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, range: 1 });
 
                 const items = rows
-                    .filter(r => r['Brand'] && r['Amount In Stock'] !== undefined) // Filter out empty rows and rows with no Brand
+                    .filter(r => r['Brand']) // Filter out empty rows and rows with no Brand
                     .map(r => {
                         // Extract data from the row
                         const brand = r['Brand'];
@@ -1355,6 +1355,7 @@
             }
             e.target.value = '';
         });
+
 
 
 
