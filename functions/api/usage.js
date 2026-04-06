@@ -60,19 +60,3 @@ function json(data, status = 200) {
         }
     });
 }
-// Add this to your usage.js API
-export async function onRequestPost(context) {
-    const data = await context.request.json();
-    const db = context.env.DB;
-
-    if (data.action === 'log_usage') {
-        // ... existing log_usage code ...
-    }
-
-    if (data.action === 'delete_all') {
-        await db.prepare("DELETE FROM usage_logs").run();
-        return json({ ok: true, deleted: 'all' }, 200);
-    }
-
-    return json({ error: 'Unknown action' }, 400);
-}
