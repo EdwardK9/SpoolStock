@@ -916,6 +916,94 @@
     <!-- TOAST -->
     <div id="toast"></div>
 
+    <!-- ======= SPOOL DETAIL SIDEBAR ======= -->
+    <div id="sidebar-overlay" onclick="closeSidebar()"
+        style="display:none;position:fixed;inset:0;z-index:200;background:var(--modal-bg);backdrop-filter:blur(4px)"></div>
+
+    <aside id="sidebar" style="
+        position:fixed;top:0;right:0;bottom:0;z-index:201;
+        width:min(420px,100vw);
+        background:var(--surface);
+        border-left:1px solid var(--border);
+        box-shadow:-8px 0 40px rgba(0,0,0,0.4);
+        transform:translateX(100%);
+        transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
+        display:flex;flex-direction:column;
+        overflow:hidden;
+    ">
+        <!-- Sidebar header strip (colour accent) -->
+        <div id="sb-accent-bar" style="height:4px;background:var(--accent);flex-shrink:0"></div>
+
+        <!-- Header -->
+        <div style="padding:24px 28px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span id="sb-badge" class="badge" style="margin-bottom:8px;display:inline-block"></span>
+                    <h2 id="sb-brand" class="text-xl font-black" style="color:var(--text)">—</h2>
+                    <p id="sb-label" class="text-sm mt-0.5" style="color:var(--text2)">—</p>
+                </div>
+                <div class="flex items-center gap-3 ml-4">
+                    <span id="sb-chip" class="color-chip" style="width:36px;height:36px;border-radius:10px"></span>
+                    <button onclick="closeSidebar()" style="color:var(--muted);font-size:22px;line-height:1;background:none;border:none;cursor:pointer">×</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div style="flex:1;overflow-y:auto;padding:24px 28px">
+
+            <!-- Weight gauge -->
+            <div style="margin-bottom:28px">
+                <div class="flex justify-between items-end mb-2">
+                    <span class="text-xs mono uppercase tracking-widest" style="color:var(--muted)">In Stock</span>
+                    <span id="sb-weight" class="text-3xl font-black mono" style="color:var(--text)">—<span class="text-sm font-normal ml-1" style="color:var(--muted)">g</span></span>
+                </div>
+                <div class="progress-bg">
+                    <div id="sb-progress" class="progress-fill" style="width:0%;background:var(--green)"></div>
+                </div>
+                <div class="flex justify-between mt-1">
+                    <span id="sb-status" class="text-xs mono font-bold"></span>
+                    <span id="sb-pct" class="text-xs mono" style="color:var(--muted)"></span>
+                </div>
+            </div>
+
+            <!-- Details grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+                <div class="stat-card" style="padding:14px 16px">
+                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Material</p>
+                    <p id="sb-material" class="text-sm font-bold" style="color:var(--text)">—</p>
+                </div>
+                <div class="stat-card" style="padding:14px 16px">
+                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Style</p>
+                    <p id="sb-style" class="text-sm font-bold" style="color:var(--text)">—</p>
+                </div>
+                <div class="stat-card" style="padding:14px 16px">
+                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Code</p>
+                    <p id="sb-code" class="text-sm font-bold mono" style="color:var(--text)">—</p>
+                </div>
+                <div class="stat-card" style="padding:14px 16px">
+                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Total Bought</p>
+                    <p id="sb-total" class="text-sm font-bold mono" style="color:var(--text)">—</p>
+                </div>
+            </div>
+
+            <!-- Recent usage -->
+            <div>
+                <h4 class="text-xs mono uppercase tracking-widest mb-3" style="color:var(--muted)">Recent Usage</h4>
+                <div id="sb-usage-list">
+                    <p class="text-sm" style="color:var(--muted)">Loading…</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer actions -->
+        <div style="padding:20px 28px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:10px">
+            <button id="sb-use-btn" class="btn-primary flex-1">− Log Use</button>
+            <button id="sb-edit-btn" class="btn-ghost flex-1">✏️ Edit</button>
+            <a id="sb-buy-link" href="#" target="_blank" class="btn-ghost" style="text-decoration:none">↗ Buy</a>
+        </div>
+    </aside>
+
     <script>
         // ============================================================
         // STATE
@@ -1207,7 +1295,20 @@
             const buyLink = getBuyLink(f);
             const isAuto = !f.web_address;
 
-            return `<div class="spool-card p-5 ${isLow ? 'low-stock' : ''} ${isEmpty ? 'empty' : ''}" style="--card-accent:${hex}">
+            return `<div class="spool-card p-5 ${isLow ? 'low-stock' : ''} ${isEmpty ? 'empty' : ''}" style="--card-accent:${hex};cursor:pointer"
+                data-id="${f.id}"
+                data-brand="${(f.brand||'').replace(/"/g,'&quot;')}"
+                data-material="${(f.material||'').replace(/"/g,'&quot;')}"
+                data-color-name="${(f.color_name||'').replace(/"/g,'&quot;')}"
+                data-style="${(f.style||'').replace(/"/g,'&quot;')}"
+                data-code="${(f.code||'').replace(/"/g,'&quot;')}"
+                data-barcode="${(f.barcode||'').replace(/"/g,'&quot;')}"
+                data-web-address="${(f.web_address||'').replace(/"/g,'&quot;')}"
+                data-weight-current="${w}"
+                data-total-purchased="${total}"
+                data-hex="${hex}"
+                onclick="openSidebar(this)"
+            >
         <div class="flex justify-between items-start mb-3">
             <div style="flex:1;min-width:0">
                 <span class="badge mb-2" style="background:${ms.bg};color:${ms.text}">${f.material || '?'}</span>
@@ -1240,6 +1341,7 @@
             <div class="card-actions justify-between">
                 <div class="flex items-center gap-2">
                     ${buyLink ? `<a href="${buyLink}" target="_blank" 
+                        onclick="event.stopPropagation()"
                         class="text-xs mono hover:underline flex items-center gap-1"
                         style="color:var(--accent)" title="${isAuto ? 'Auto-generated link' : 'Custom link'}">
                         ↗ ${f.brand && f.brand.toLowerCase().includes('bambu') ? 'Bambu Store' : 'Amazon UK'}
@@ -1247,8 +1349,8 @@
                     </a>` : ''}
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="openEditModal(${f.id})" class="btn-ghost py-1.5 px-2 text-xs">✏️ Edit</button>
-                    <button onclick="openUsageModal(${f.id},'${esc(f.brand)} ${esc(f.color_name)}',${w})"
+                    <button onclick="event.stopPropagation();openEditModal(${f.id})" class="btn-ghost py-1.5 px-2 text-xs">✏️ Edit</button>
+                    <button onclick="event.stopPropagation();openUsageModal(${f.id},'${esc(f.brand)} ${esc(f.color_name)}',${w})"
                             class="btn-ghost py-1.5 px-2 text-xs" ${isEmpty ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
                         − Use
                     </button>
@@ -1644,10 +1746,105 @@
         }
 
         // ============================================================
+        // SIDEBAR
+        // ============================================================
+        function openSidebar(cardEl) {
+            const id       = cardEl.dataset.id;
+            const brand    = cardEl.dataset.brand;
+            const material = cardEl.dataset.material;
+            const colorName= cardEl.dataset.colorName;
+            const style    = cardEl.dataset.style;
+            const code     = cardEl.dataset.code;
+            const barcode  = cardEl.dataset.barcode;
+            const webAddr  = cardEl.dataset.webAddress;
+            const weight   = parseFloat(cardEl.dataset.weightCurrent) || 0;
+            const total    = parseFloat(cardEl.dataset.totalPurchased) || 0;
+            const hex      = cardEl.dataset.hex || '#4f8ef7';
+
+            // Accent bar
+            document.getElementById('sb-accent-bar').style.background = hex;
+            document.getElementById('sb-chip').style.background = hex;
+
+            // Header
+            const ms = matStyle(material);
+            const badge = document.getElementById('sb-badge');
+            badge.textContent = material || '?';
+            badge.style.background = ms.bg;
+            badge.style.color = ms.text;
+
+            document.getElementById('sb-brand').textContent = brand || 'Unknown';
+            document.getElementById('sb-label').textContent = [colorName, style].filter(Boolean).join(' · ') || '—';
+
+            // Weight gauge
+            const pct = Math.min(100, Math.round((weight / 1000) * 100));
+            const isLow = weight > 0 && weight < 150;
+            const isEmpty = weight === 0;
+            document.getElementById('sb-weight').innerHTML = Math.round(weight) + '<span class="text-sm font-normal ml-1" style="color:var(--muted)">g</span>';
+            document.getElementById('sb-progress').style.width = pct + '%';
+            document.getElementById('sb-progress').style.background = isEmpty ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--green)';
+            document.getElementById('sb-status').textContent = isEmpty ? 'EMPTY' : isLow ? 'LOW STOCK' : 'OK';
+            document.getElementById('sb-status').style.color = isEmpty ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--green)';
+            document.getElementById('sb-pct').textContent = pct + '% remaining';
+
+            // Details
+            document.getElementById('sb-material').textContent = material || '—';
+            document.getElementById('sb-style').textContent = style || '—';
+            document.getElementById('sb-code').textContent = code || '—';
+            document.getElementById('sb-total').textContent = total > 0 ? total + ' spools' : '—';
+
+            // Buy link
+            const f = filaments.find(x => x.id == id) || { brand, material, color_name: colorName, style, web_address: webAddr };
+            const buyLink = getBuyLink(f);
+            document.getElementById('sb-buy-link').href = buyLink;
+
+            // Action buttons
+            document.getElementById('sb-use-btn').onclick = () => {
+                closeSidebar();
+                openUsageModal(id, `${brand} ${colorName}`, weight);
+            };
+            document.getElementById('sb-edit-btn').onclick = () => {
+                closeSidebar();
+                openEditModal(parseInt(id));
+            };
+
+            // Usage history
+            const usageContainer = document.getElementById('sb-usage-list');
+            usageContainer.innerHTML = '<p class="text-sm" style="color:var(--muted)">Loading…</p>';
+            fetch('/api/usage')
+                .then(r => r.json())
+                .then(logs => {
+                    const mine = logs.filter(u => u.filament_id == id).slice(0, 6);
+                    if (!mine.length) {
+                        usageContainer.innerHTML = '<p class="text-sm" style="color:var(--muted)">No usage logged yet.</p>';
+                        return;
+                    }
+                    usageContainer.innerHTML = mine.map(u => `
+                        <div class="flex justify-between items-center py-2.5" style="border-bottom:1px solid var(--border)">
+                            <div>
+                                <p class="text-sm font-medium" style="color:var(--text)">${u.project_name || 'Manual'}</p>
+                                <p class="text-xs mono" style="color:var(--muted)">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : ''}</p>
+                            </div>
+                            <span class="text-sm font-black mono" style="color:var(--orange)">−${u.weight_used}g</span>
+                        </div>
+                    `).join('');
+                })
+                .catch(() => { usageContainer.innerHTML = '<p class="text-sm" style="color:var(--muted)">Could not load usage.</p>'; });
+
+            // Show
+            document.getElementById('sidebar-overlay').style.display = 'block';
+            document.getElementById('sidebar').style.transform = 'translateX(0)';
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').style.transform = 'translateX(100%)';
+            document.getElementById('sidebar-overlay').style.display = 'none';
+        }
+
+        // ============================================================
         // KEYBOARD
         // ============================================================
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { closeModal(); closeUsageModal(); }
+            if (e.key === 'Escape') { closeModal(); closeUsageModal(); closeSidebar(); }
             if ((e.metaKey || e.ctrlKey) && e.key === 'e') { e.preventDefault(); exportToExcel(); }
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openAddModal(); }
         });
