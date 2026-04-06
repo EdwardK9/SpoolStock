@@ -1,3 +1,36 @@
+FilamentStock v3
+
+Features included:
+
+• Excel import using:
+  - Filament Left
+  - Total Purchased
+
+• Automatic spool calculation
+  filament_left / 1000
+
+• Finished spool tracking
+  finished = total_purchased - current_spools
+
+• Inventory sorting:
+  - Most full spool
+  - Most empty spool
+  - Most in stock
+  - Least in stock
+
+• Clear database buttons
+
+• 3MF parser (reads Bambu Studio config)
+
+• Dashboard graph: filament usage per month
+
+• Cloudflare password protection
+  set env variable:
+  APP_PASSWORD
+
+• Brother QL‑700 label compatible (62mm roll)
+
+
 # Filament Flow — Setup Guide
 
 ## Repo structure
