@@ -1,62 +1,17 @@
-/**
- * GET  /api/usage  → returns usage log with filament labels
- * POST /api/usage  → log filament usage (deducts from spool)
- */
 
-export async function onRequestGet(context) {
-    const { results } = await context.env.DB.prepare(`
-        SELECT 
-            u.id,
-            u.filament_id,
-            u.project_name,
-            u.weight_used,
-            u.created_at,
-            (f.brand || ' ' || f.color_name) AS filament_label
-        FROM usage_logs u
-        LEFT JOIN filaments f ON f.id = u.filament_id
-        ORDER BY u.created_at DESC
-        LIMIT 200
-    `).all();
-    return json(results);
-}
+export async function onRequestPost(context){
 
-export async function onRequestPost(context) {
-    const data = await context.request.json();
-    const { filament_id, grams, project } = data;
+const data=await context.request.json()
 
-    if (!filament_id || !grams || grams <= 0) {
-        return json({ error: 'filament_id and grams are required' }, 400);
-    }
+await context.env.DB.batch([
+context.env.DB.prepare(
+"UPDATE filaments SET weight_current=weight_current-? WHERE id=?"
+).bind(data.grams,data.id),
 
-    const db = context.env.DB;
+context.env.DB.prepare(
+"INSERT INTO usage_logs (filament_id,project_name,weight_used) VALUES (?,?,?)"
+).bind(data.id,data.project,data.grams)
+])
 
-    // Check current weight
-    const spool = await db.prepare("SELECT weight_current FROM filaments WHERE id = ?")
-        .bind(filament_id).first();
-
-    if (!spool) return json({ error: 'Spool not found' }, 404);
-    if (spool.weight_current < grams) {
-        return json({ error: 'Not enough filament on spool' }, 400);
-    }
-
-    await db.batch([
-        db.prepare(
-            "UPDATE filaments SET weight_current = weight_current - ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?"
-        ).bind(grams, filament_id),
-        db.prepare(
-            "INSERT INTO usage_logs (filament_id, project_name, weight_used) VALUES (?, ?, ?)"
-        ).bind(filament_id, project ?? 'Manual', grams),
-    ]);
-
-    return json({ ok: true });
-}
-
-function json(data, status = 200) {
-    return new Response(JSON.stringify(data), {
-        status,
-        headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-        }
-    });
+return new Response(JSON.stringify({ok:true}))
 }
