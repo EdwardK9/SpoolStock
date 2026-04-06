@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS filaments (
     color_name      TEXT,
     color_hex       TEXT,
     style           TEXT,
-    code            TEXT UNIQUE,   -- your numeric code (e.g. 11502)
+    code            TEXT,          -- your numeric code (e.g. 11502)
     barcode         TEXT,
     web_address     TEXT,
     weight_current  REAL NOT NULL DEFAULT 1000,  -- grams remaining

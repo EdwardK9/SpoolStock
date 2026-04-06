@@ -394,19 +394,27 @@
 
 <!-- LOG USAGE MODAL -->
 <div id="usage-modal-overlay" style="position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center">
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;width:100%;max-width:400px">
-        <div class="flex justify-between items-center mb-6">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;width:100%;max-width:440px">
+        <div class="flex justify-between items-center mb-4">
             <h2 class="text-lg font-black mono uppercase">Log Usage</h2>
             <button onclick="closeUsageModal()" class="text-gray-500 hover:text-white text-xl leading-none">×</button>
         </div>
-        <p id="usage-modal-label" class="text-sm text-gray-400 mb-4"></p>
-        <div>
-            <label class="text-xs mono text-gray-500 uppercase block mb-1">Grams Used</label>
-            <input type="number" id="usage-grams" placeholder="e.g. 45" min="1">
-        </div>
-        <div class="mt-3">
-            <label class="text-xs mono text-gray-500 uppercase block mb-1">Project Name (optional)</label>
-            <input type="text" id="usage-project" placeholder="My Print">
+        <p id="usage-modal-label" class="text-sm text-gray-400 mb-5 leading-relaxed"></p>
+        <div class="space-y-4">
+            <div id="usage-picker-row">
+                <label class="text-xs mono text-gray-500 uppercase block mb-1">Spool</label>
+                <select id="usage-spool-picker" style="width:100%">
+                    <option value="">— Select spool —</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs mono text-gray-500 uppercase block mb-1">Grams Used</label>
+                <input type="number" id="usage-grams" placeholder="e.g. 45" min="1" step="0.1">
+            </div>
+            <div>
+                <label class="text-xs mono text-gray-500 uppercase block mb-1">Project Name (optional)</label>
+                <input type="text" id="usage-project" placeholder="My Print">
+            </div>
         </div>
         <div class="flex gap-3 mt-6">
             <button onclick="closeUsageModal()" class="btn-ghost flex-1">Cancel</button>
@@ -422,7 +430,6 @@
 // ===== STATE =====
 let filaments = [];
 let activeTab = 'dashboard';
-let usageTarget = null;
 let inStockFilter = false;
 
 // ===== COLOUR MAP (for common Bambu colours) =====
@@ -735,44 +742,42 @@ document.getElementById('threemf-upload').addEventListener('change', async (e) =
     try {
         const zip = await JSZip.loadAsync(file);
         let filamentGrams = 0;
-        let filamentId = null;
+        const allFiles = Object.keys(zip.files);
 
-        // Search gcode file for filament usage
-        for (const [name, entry] of Object.entries(zip.files)) {
-            if (name.endsWith('.gcode') || name.includes('plate')) {
-                const content = await entry.async('string');
-                // Bambu Studio format
-                const match = content.match(/; filament used \[g\]\s*=\s*([\d.]+)/i)
-                           || content.match(/filament_used_g\s*=\s*([\d.]+)/i)
-                           || content.match(/total filament used \[g\]\s*=\s*([\d.]+)/i);
-                if (match) { filamentGrams = parseFloat(match[1]); break; }
+        // Bambu Studio embeds gcode inside the 3MF zip
+        // Try every file — gcode can be named plate_1.gcode, Metadata/plate_1.gcode, etc.
+        for (const name of allFiles) {
+            if (!zip.files[name].dir) {
+                const lower = name.toLowerCase();
+                if (lower.endsWith('.gcode') || lower.includes('gcode')) {
+                    const content = await zip.files[name].async('string');
+                    // Multiple patterns Bambu Studio uses across versions
+                    const patterns = [
+                        /; filament used \[g\]\s*=\s*([\d.]+)/i,
+                        /;filament used \[g\]\s*=\s*([\d.]+)/i,
+                        /filament_used_g\s*=\s*([\d.]+)/i,
+                        /; total filament used \[g\]\s*=\s*([\d.]+)/i,
+                        /; filament_used_g\s*=\s*([\d.]+)/i,
+                    ];
+                    for (const pat of patterns) {
+                        const m = content.match(pat);
+                        if (m) { filamentGrams = parseFloat(m[1]); break; }
+                    }
+                    if (filamentGrams > 0) break;
+                }
             }
         }
 
-        // Try to read filament config from 3MF metadata
-        for (const [name, entry] of Object.entries(zip.files)) {
-            if (name.includes('config') || name.includes('metadata')) {
-                const content = await entry.async('string');
-                const idMatch = content.match(/filament_id["\s:=]+(\d+)/i);
-                if (idMatch) { filamentId = idMatch[1]; break; }
-            }
-        }
+        const projectName = file.name.replace(/\.3mf$/i, '');
 
         if (filamentGrams <= 0) {
-            showToast('No weight data found — ensure project was sliced in Bambu Studio first.', 'error');
-            e.target.value = '';
-            return;
+            // 3MF has no gcode yet — let user enter grams manually
+            showToast('No weight in 3MF — enter grams manually below.', '');
+            openUsageModal(null, projectName, null, null, projectName);
+        } else {
+            openUsageModal(null, projectName, null, filamentGrams, projectName);
         }
 
-        // Show usage modal pre-filled with project name
-        usageTarget = { id: filamentId, label: file.name.replace('.3mf', ''), prefill: filamentGrams, project: file.name.replace('.3mf', '') };
-        document.getElementById('usage-modal-label').textContent = `"${file.name}" used ${filamentGrams}g. Select spool to deduct from:`;
-        document.getElementById('usage-grams').value = filamentGrams;
-        document.getElementById('usage-project').value = file.name.replace('.3mf', '');
-        
-        // If we have a spool ID from metadata, prefill it
-        openUsageModal(filamentId, file.name.replace('.3mf', ''), 0, filamentGrams, file.name.replace('.3mf', ''));
-        
     } catch (err) {
         showToast('3MF parsing failed: ' + err.message, 'error');
     }
@@ -780,35 +785,71 @@ document.getElementById('threemf-upload').addEventListener('change', async (e) =
 });
 
 // ===== USAGE MODAL =====
-function openUsageModal(id, label, currentWeight, prefillGrams = null, prefillProject = null) {
-    usageTarget = { id, label };
-    document.getElementById('usage-modal-label').textContent = `Logging use for: ${label} (${Math.round(currentWeight)}g remaining)`;
+// Opens for both manual card clicks AND 3MF imports
+// spoolId = null means user must pick from dropdown
+function openUsageModal(spoolId, projectName, currentWeight, prefillGrams = null, prefillProject = null) {
+    // Build spool picker from current filament list
+    const picker = document.getElementById('usage-spool-picker');
+    const inStock = filaments.filter(f => (parseFloat(f.weight_current) || 0) > 0);
+    
+    if (spoolId) {
+        // Called from card button — pre-select and hide picker label
+        picker.innerHTML = `<option value="${spoolId}" selected>${filaments.find(f=>f.id==spoolId)?.brand || ''} ${filaments.find(f=>f.id==spoolId)?.color_name || ''} (#${spoolId})</option>`;
+        picker.value = spoolId;
+        document.getElementById('usage-picker-row').classList.add('hidden');
+    } else {
+        // Called from 3MF — show full dropdown
+        picker.innerHTML = '<option value="">— Select spool —</option>' +
+            inStock.map(f => 
+                `<option value="${f.id}">${f.brand} ${f.color_name} · ${f.material}${f.style ? ' ' + f.style : ''} (${Math.round(f.weight_current)}g left)</option>`
+            ).join('');
+        document.getElementById('usage-picker-row').classList.remove('hidden');
+    }
+
+    const label = document.getElementById('usage-modal-label');
+    if (spoolId && currentWeight !== null) {
+        label.textContent = `Logging use for: ${projectName || 'this spool'} (${Math.round(currentWeight)}g remaining)`;
+    } else if (prefillGrams) {
+        label.textContent = `"${projectName}" used ${prefillGrams}g — select which spool to deduct from:`;
+    } else {
+        label.textContent = 'Select spool and enter grams used:';
+    }
+
     document.getElementById('usage-grams').value = prefillGrams || '';
     document.getElementById('usage-project').value = prefillProject || '';
     document.getElementById('usage-modal-overlay').style.display = 'flex';
-    setTimeout(() => document.getElementById('usage-grams').focus(), 50);
+    setTimeout(() => {
+        if (!spoolId) picker.focus();
+        else document.getElementById('usage-grams').focus();
+    }, 50);
 }
+
 function closeUsageModal() {
     document.getElementById('usage-modal-overlay').style.display = 'none';
-    usageTarget = null;
 }
+
 async function submitUsage() {
-    if (!usageTarget?.id) { showToast('No spool selected.', 'error'); return; }
+    const spoolId = document.getElementById('usage-spool-picker').value;
     const grams = parseFloat(document.getElementById('usage-grams').value);
     const project = document.getElementById('usage-project').value || 'Manual';
+
+    if (!spoolId) { showToast('Please select a spool.', 'error'); return; }
     if (!grams || grams <= 0) { showToast('Enter a valid weight.', 'error'); return; }
+
+    const spool = filaments.find(f => f.id == spoolId);
+    const label = spool ? `${spool.brand} ${spool.color_name}` : `Spool #${spoolId}`;
 
     try {
         await apiFetch('/api/usage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filament_id: usageTarget.id, grams, project })
+            body: JSON.stringify({ filament_id: parseInt(spoolId), grams, project })
         });
-        showToast(`✓ Logged ${grams}g from ${usageTarget.label}`, 'success');
+        showToast(`✓ Logged ${grams}g from ${label}`, 'success');
         closeUsageModal();
         await loadAll();
-    } catch {
-        showToast('Could not log usage.', 'error');
+    } catch (err) {
+        showToast('Could not log usage: ' + err.message, 'error');
     }
 }
 

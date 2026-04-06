@@ -9,4 +9,4 @@ pages_build_output_dir = "."   # your HTML is at the root
 [[d1_databases]]
 binding = "DB"                       # must match context.env.DB in your JS
 database_name = "filament-stock"     # whatever you named it in the dashboard
-database_id = "d665bae0-7ab9-40a1-8502-cac317c7657c"     # paste from: D1 → your-db → Settings
+database_id = "YOUR_DATABASE_ID"     # paste from: D1 → your-db → Settings

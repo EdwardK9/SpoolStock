@@ -19,37 +19,34 @@ export async function onRequestPost(context) {
             return json({ error: 'No items provided' }, 400);
         }
 
+        // Wipe existing data and re-import fresh (simplest safe approach)
+        await db.prepare("DELETE FROM filaments").run();
+
         const stmt = db.prepare(`
             INSERT INTO filaments 
                 (brand, material, color_name, style, code, barcode, web_address, weight_current, color_hex, total_purchased)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(code) DO UPDATE SET
-                brand = excluded.brand,
-                material = excluded.material,
-                color_name = excluded.color_name,
-                style = excluded.style,
-                barcode = excluded.barcode,
-                web_address = excluded.web_address,
-                weight_current = excluded.weight_current,
-                color_hex = excluded.color_hex,
-                total_purchased = excluded.total_purchased,
-                last_updated = CURRENT_TIMESTAMP
         `);
 
-        await db.batch(
-            data.items.map(i => stmt.bind(
-                i.brand         ?? null,
-                i.material      ?? null,
-                i.color_name    ?? null,
-                i.style         ?? null,
-                i.code          ?? null,
-                i.barcode       ?? null,
-                i.web_address   ?? null,
-                i.weight_current ?? 1000,
-                i.color_hex     ?? null,
-                i.total_purchased ?? null
-            ))
-        );
+        // D1 batch limit is 100 statements — chunk if needed
+        const CHUNK = 90;
+        for (let i = 0; i < data.items.length; i += CHUNK) {
+            const chunk = data.items.slice(i, i + CHUNK);
+            await db.batch(
+                chunk.map(item => stmt.bind(
+                    item.brand          ?? null,
+                    item.material       ?? null,
+                    item.color_name     ?? null,
+                    item.style          ?? null,
+                    item.code           ?? null,
+                    item.barcode        ?? null,
+                    item.web_address    ?? null,
+                    item.weight_current ?? 1000,
+                    item.color_hex      ?? null,
+                    item.total_purchased ?? null
+                ))
+            );
+        }
         return json({ ok: true, count: data.items.length }, 201);
     }
 
