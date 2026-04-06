@@ -1,16 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Filament Tracker Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        .active-tab { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
-        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
+        .active-tab {
+            border-bottom: 2px solid #2563eb;
+            color: #2563eb;
+            font-weight: 600;
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
     </style>
 </head>
+
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
     <header class="max-w-7xl mx-auto px-4 py-8">
@@ -40,7 +50,8 @@
 
     <nav class="max-w-7xl mx-auto px-4 mb-6">
         <div class="bg-white rounded-lg p-1 flex space-x-1 card-shadow border border-slate-200">
-            <button onclick="showTab('dashboard')" id="btn-dashboard" class="flex-1 py-2 rounded-md active-tab">Dashboard</button>
+            <button onclick="showTab('dashboard')" id="btn-dashboard"
+                class="flex-1 py-2 rounded-md active-tab">Dashboard</button>
             <button onclick="showTab('filaments')" id="btn-filaments" class="flex-1 py-2 rounded-md">Filaments</button>
             <button onclick="showTab('usage')" id="btn-usage" class="flex-1 py-2 rounded-md">Usage</button>
             <button onclick="showTab('tests')" id="btn-tests" class="flex-1 py-2 rounded-md">Tests</button>
@@ -48,7 +59,7 @@
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 pb-12">
-        
+
         <section id="tab-filaments" class="hidden">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold">Filament Inventory</h1>
@@ -56,11 +67,12 @@
                     <label class="bg-white border px-4 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition">
                         Import Excel <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
                     </label>
-                    <button onclick="openAddModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800">+ Add Filament</button>
+                    <button onclick="openAddModal()"
+                        class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800">+ Add Filament</button>
                 </div>
             </div>
             <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                </div>
+            </div>
         </section>
 
         <section id="tab-usage" class="hidden">
@@ -82,7 +94,8 @@
 
         <section id="tab-dashboard">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-8 rounded-xl border border-slate-100 card-shadow h-64 flex flex-col items-center justify-center text-center">
+                <div
+                    class="bg-white p-8 rounded-xl border border-slate-100 card-shadow h-64 flex flex-col items-center justify-center text-center">
                     <h3 class="text-lg font-semibold mb-2">Material Breakdown</h3>
                     <div id="chart-placeholder" class="text-slate-400">Charts will render here based on DB data</div>
                 </div>
@@ -112,13 +125,13 @@
         async function loadFilaments() {
             const res = await fetch('/api/filaments');
             const data = await res.json();
-            
+
             // Update Header Stats
             document.getElementById('stat-count').innerText = data.length;
             const totalGrams = data.reduce((acc, curr) => acc + (curr.weight_current || 0), 0);
             document.getElementById('stat-weight').innerText = (totalGrams / 1000).toFixed(1) + " kg";
             document.getElementById('stat-low').innerText = data.filter(f => f.weight_current < 150).length;
-            
+
             const grid = document.getElementById('filament-grid');
             grid.innerHTML = data.map(f => `
                 <div class="bg-white p-5 rounded-xl border border-slate-200 card-shadow">
@@ -140,6 +153,44 @@
                 </div>
             `).join('');
         }
+        async function handle3MF(file) {
+            const zip = await JSZip.loadAsync(file);
+
+            // 3MF files contain a .gcode or metadata file with the slice info
+            // We look for the filament usage comment usually found at the end
+            let filamentGrams = 0;
+
+            // Search common metadata locations in Bambu/Prusa 3MFs
+            const files = Object.keys(zip.files);
+            const gcodeFile = files.find(f => f.endsWith('.gcode') || f.includes('slice_info'));
+
+            if (gcodeFile) {
+                const content = await zip.file(gcodeFile).async("string");
+
+                // Regex to find "filament used [g] = 123.45"
+                const match = content.match(/filament used \[g\]\s*=\s*([\d.]+)/);
+                if (match) {
+                    filamentGrams = parseFloat(match[1]);
+                }
+            }
+
+            if (filamentGrams > 0) {
+                const spoolId = prompt(`Detected ${filamentGrams}g of usage. Enter Spool ID to subtract from:`);
+                if (spoolId) {
+                    updateWeight(spoolId, filamentGrams);
+                }
+            } else {
+                alert("Could not find filament weight in this 3MF. Ensure it's a 'Project' file saved after slicing.");
+            }
+        }
+
+        async function updateWeight(id, grams) {
+            await fetch(`/api/usage`, {
+                method: 'POST',
+                body: JSON.stringify({ filament_id: id, used: grams, project: "3MF Import" })
+            });
+            loadFilaments(); // Refresh UI
+        }
 
         // EXCEL IMPORT LOGIC
         document.getElementById('excel-upload').addEventListener('change', async (e) => {
@@ -157,7 +208,7 @@
 
             await fetch('/api/filaments', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formatted)
             });
             loadFilaments();
@@ -167,4 +218,5 @@
         showTab('dashboard');
     </script>
 </body>
+
 </html>
