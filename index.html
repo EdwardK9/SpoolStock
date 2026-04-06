@@ -1528,7 +1528,6 @@
             try {
                 const zip = await JSZip.loadAsync(file);
                 let filamentGrams = 0;
-                let filamentsByType = {}; // key: material/colour, value: grams
 
                 for (const name of Object.keys(zip.files)) {
                     if (zip.files[name].dir) continue;
@@ -1546,18 +1545,23 @@
                         ];
                         for (const pat of patterns) {
                             const m = content.match(pat);
-                            if (m) { filamentGrams = parseFloat(m[1]); break; }
+                            if (m) {
+                                filamentGrams = parseFloat(m[1]);
+                                break;
+                            }
                         }
 
                         // Try to get per-type breakdown (Bambu multi-colour prints)
-                        // ; filament used [g] = 12.34, 5.67, 8.90
                         const multiMatch = content.match(/; filament used \[g\]\s*=\s*([\d.,\s]+)/i);
                         if (multiMatch) {
                             const parts = multiMatch[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
                             if (parts.length > 1) {
-                                parts.forEach((g, i) => { filamentsByType[`Slot ${i + 1}`] = g; });
+                                for (let i = 0; i < parts.length; i++) {
+                                    filamentGrams += parts[i];
+                                }
                             }
                         }
+
                         if (filamentGrams > 0) break;
                     }
                 }
