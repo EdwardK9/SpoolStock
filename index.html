@@ -153,7 +153,9 @@
             overflow: hidden;
             box-shadow: var(--card-shadow);
             cursor: pointer;
+            /* Ensures clicking is possible */
         }
+
 
         .spool-card::before {
             content: '';
@@ -189,6 +191,7 @@
             border-color: rgba(239, 68, 68, 0.2);
             opacity: 0.55;
         }
+
 
         /* STAT CARDS */
         .stat-card {
@@ -1655,6 +1658,6 @@
         loadAll();
     </script>
 </body>
-    <script src="functions/api/scripts.js"></script>
+<script src="functions/api/scripts.js"></script>
 
 </html>
