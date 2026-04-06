@@ -1,222 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filament Tracker Pro</title>
+    <title>Filament Flow | P1S Inventory</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        .active-tab {
-            border-bottom: 2px solid #2563eb;
-            color: #2563eb;
-            font-weight: 600;
-        }
-
-        .card-shadow {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        }
+        .active-tab { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 700; }
+        .card-shadow { box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08); }
     </style>
 </head>
 
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
     <header class="max-w-7xl mx-auto px-4 py-8">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
-                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Total Filaments</p>
-                <h2 id="stat-count" class="text-3xl font-bold text-blue-600">0</h2>
-                <p class="text-xs text-slate-400 mt-1">Active inventory</p>
+        <div class="flex justify-between items-end mb-8">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight text-slate-900 uppercase">Filament Flow</h1>
+                <p class="text-slate-500 font-medium">Bambu Lab P1S & H2D Inventory</p>
             </div>
-            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
-                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Total Weight</p>
-                <h2 id="stat-weight" class="text-3xl font-bold text-green-600">0.0 kg</h2>
-                <p class="text-xs text-slate-400 mt-1">Filament on hand</p>
+            <div class="flex gap-3">
+                <label class="bg-white border-2 border-slate-200 px-4 py-2 rounded-xl cursor-pointer hover:border-blue-400 hover:text-blue-600 transition font-bold text-sm shadow-sm">
+                    📂 Import Excel <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
+                </label>
+                <label class="bg-blue-600 text-white px-4 py-2 rounded-xl cursor-pointer hover:bg-blue-700 transition font-bold text-sm shadow-md">
+                    🚀 Log 3MF Print <input type="file" id="threemf-upload" class="hidden" accept=".3mf">
+                </label>
             </div>
-            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
-                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Low Stock</p>
-                <h2 id="stat-low" class="text-3xl font-bold text-orange-500">0</h2>
-                <p class="text-xs text-slate-400 mt-1">Under 150g</p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Spools</p>
+                <h2 id="stat-count" class="text-3xl font-black text-slate-900">0</h2>
             </div>
-            <div class="bg-white p-6 rounded-xl card-shadow border border-slate-100">
-                <p class="text-sm text-slate-500 uppercase tracking-wider font-semibold">Material Types</p>
-                <h2 id="stat-types" class="text-3xl font-bold text-purple-600">0</h2>
-                <p class="text-xs text-slate-400 mt-1">PLA, PETG, etc.</p>
+            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Stock Weight</p>
+                <h2 id="stat-weight" class="text-3xl font-black text-emerald-600">0.0<span class="text-sm ml-1 text-slate-400">kg</span></h2>
+            </div>
+            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Low Stock</p>
+                <h2 id="stat-low" class="text-3xl font-black text-orange-500">0</h2>
+            </div>
+            <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-100">
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-black">Materials</p>
+                <h2 id="stat-types" class="text-3xl font-black text-purple-600">0</h2>
             </div>
         </div>
     </header>
 
-    <nav class="max-w-7xl mx-auto px-4 mb-6">
-        <div class="bg-white rounded-lg p-1 flex space-x-1 card-shadow border border-slate-200">
-            <button onclick="showTab('dashboard')" id="btn-dashboard"
-                class="flex-1 py-2 rounded-md active-tab">Dashboard</button>
-            <button onclick="showTab('filaments')" id="btn-filaments" class="flex-1 py-2 rounded-md">Filaments</button>
-            <button onclick="showTab('usage')" id="btn-usage" class="flex-1 py-2 rounded-md">Usage</button>
-            <button onclick="showTab('tests')" id="btn-tests" class="flex-1 py-2 rounded-md">Tests</button>
+    <nav class="max-w-7xl mx-auto px-4 mb-8">
+        <div class="flex border-b border-slate-200 gap-8">
+            <button onclick="showTab('dashboard')" id="btn-dashboard" class="pb-4 text-sm font-bold active-tab transition-all">DASHBOARD</button>
+            <button onclick="showTab('filaments')" id="btn-filaments" class="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all">INVENTORY</button>
+            <button onclick="showTab('usage')" id="btn-usage" class="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all">USAGE HISTORY</button>
         </div>
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 pb-12">
-
-        <section id="tab-filaments" class="hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-2xl font-bold">Filament Inventory</h1>
-                <div class="flex gap-2">
-                    <label class="bg-white border px-4 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition">
-                        Import Excel <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
-                    </label>
-                    <button onclick="openAddModal()"
-                        class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800">+ Add Filament</button>
+        <section id="tab-dashboard" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white p-8 rounded-2xl border border-slate-100 card-shadow">
+                <h3 class="text-lg font-black mb-6 uppercase tracking-tight">Material Breakdown</h3>
+                <div id="chart-placeholder" class="h-64 bg-slate-50 rounded-xl flex items-center justify-center border-2 border-dashed border-slate-200 text-slate-400 font-medium">
+                    Breakdown will appear after importing data
                 </div>
             </div>
-            <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-slate-900 text-white p-8 rounded-2xl card-shadow">
+                <h3 class="text-lg font-black mb-4 uppercase tracking-tight">System Status</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center bg-white/10 p-3 rounded-lg">
+                        <span class="text-xs font-bold text-white/60">3MF PARSER</span>
+                        <span class="text-xs font-bold text-emerald-400">READY</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-white/10 p-3 rounded-lg">
+                        <span class="text-xs font-bold text-white/60">D1 DATABASE</span>
+                        <span class="text-xs font-bold text-emerald-400">CONNECTED</span>
+                    </div>
+                    <p class="text-[11px] text-white/40 leading-relaxed pt-4 italic">
+                        Processing handled by Ryzen 9 5950X local environment for maximum efficiency.
+                    </p>
+                </div>
             </div>
+        </section>
+
+        <section id="tab-filaments" class="hidden">
+            <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
         </section>
 
         <section id="tab-usage" class="hidden">
-            <h1 class="text-2xl font-bold mb-4">Usage Logs</h1>
-            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+            <div class="bg-white rounded-2xl card-shadow overflow-hidden border border-slate-100">
                 <table class="w-full text-left">
-                    <thead class="bg-slate-50 border-b">
+                    <thead class="bg-slate-50 border-b border-slate-100">
                         <tr>
-                            <th class="p-4 font-semibold">Date</th>
-                            <th class="p-4 font-semibold">Project</th>
-                            <th class="p-4 font-semibold">Filament</th>
-                            <th class="p-4 font-semibold">Weight Used</th>
+                            <th class="p-5 text-xs font-black text-slate-400 uppercase tracking-widest">Date</th>
+                            <th class="p-5 text-xs font-black text-slate-400 uppercase tracking-widest">Project</th>
+                            <th class="p-5 text-xs font-black text-slate-400 uppercase tracking-widest">Grams Used</th>
                         </tr>
                     </thead>
-                    <tbody id="usage-list"></tbody>
+                    <tbody id="usage-list" class="divide-y divide-slate-50"></tbody>
                 </table>
-            </div>
-        </section>
-
-        <section id="tab-dashboard">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div
-                    class="bg-white p-8 rounded-xl border border-slate-100 card-shadow h-64 flex flex-col items-center justify-center text-center">
-                    <h3 class="text-lg font-semibold mb-2">Material Breakdown</h3>
-                    <div id="chart-placeholder" class="text-slate-400">Charts will render here based on DB data</div>
-                </div>
-                <div class="bg-white p-8 rounded-xl border border-slate-100 card-shadow">
-                    <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
-                    <ul class="space-y-3">
-                        <li><button class="text-blue-600 hover:underline">Log Usage from P1S Print</button></li>
-                        <li><button class="text-blue-600 hover:underline">Run Flow Rate Test</button></li>
-                    </ul>
-                </div>
             </div>
         </section>
     </main>
 
     <script>
-        // TAB NAVIGATION
+        // 1. NAVIGATION
         function showTab(tabName) {
             document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab', 'text-slate-400'));
+            
             document.getElementById('tab-' + tabName).classList.remove('hidden');
             document.getElementById('btn-' + tabName).classList.add('active-tab');
+            
             if (tabName === 'filaments') loadFilaments();
             if (tabName === 'usage') loadUsage();
         }
 
-        // FETCH FILAMENTS
+        // 2. DATA LOADING
         async function loadFilaments() {
             const res = await fetch('/api/filaments');
             const data = await res.json();
 
-            // Update Header Stats
+            // Stats Logic
             document.getElementById('stat-count').innerText = data.length;
-            const totalGrams = data.reduce((acc, curr) => acc + (curr.weight_current || 0), 0);
-            document.getElementById('stat-weight').innerText = (totalGrams / 1000).toFixed(1) + " kg";
+            const totalGrams = data.reduce((acc, curr) => acc + (parseFloat(curr.weight_current) || 0), 0);
+            document.getElementById('stat-weight').innerText = (totalGrams / 1000).toFixed(1);
             document.getElementById('stat-low').innerText = data.filter(f => f.weight_current < 150).length;
+            
+            const uniqueTypes = [...new Set(data.map(f => f.material))];
+            document.getElementById('stat-types').innerText = uniqueTypes.length;
 
             const grid = document.getElementById('filament-grid');
             grid.innerHTML = data.map(f => `
-                <div class="bg-white p-5 rounded-xl border border-slate-200 card-shadow">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <span class="text-xs font-bold text-blue-500 uppercase">${f.material}</span>
-                            <h3 class="text-lg font-bold">${f.brand}</h3>
-                            <p class="text-slate-500 text-sm">${f.color_name}</p>
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 card-shadow hover:translate-y-[-4px] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="flex flex-col gap-1">
+                            <span class="inline-block w-fit px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-tighter">${f.material}</span>
+                            <h3 class="text-xl font-black text-slate-900">${f.brand}</h3>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">${f.color_name} • ${f.style || 'Standard'}</p>
                         </div>
-                        <div class="w-8 h-8 rounded-full border shadow-sm" style="background-color: ${f.color_hex || '#ddd'}"></div>
+                        <div class="flex flex-col items-end">
+                            <span class="text-[10px] font-mono text-slate-300">#${f.id}</span>
+                            <div class="w-6 h-6 rounded-lg border shadow-inner mt-2" style="background-color: ${f.color_hex || '#e2e8f0'}"></div>
+                        </div>
                     </div>
-                    <div class="mt-4 pt-4 border-t flex justify-between items-end">
+                    
+                    <div class="flex justify-between items-end border-t border-slate-50 pt-4">
                         <div>
-                            <p class="text-xs text-slate-400">Remaining</p>
-                            <p class="text-xl font-mono font-bold">${f.weight_current}g</p>
+                            <p class="text-[10px] text-slate-300 font-black uppercase tracking-widest leading-none mb-1">In Stock</p>
+                            <p class="text-3xl font-black text-slate-900">${Math.round(f.weight_current)}<span class="text-sm font-normal text-slate-400 ml-1">g</span></p>
                         </div>
-                        <button onclick="logUsagePrompt(${f.id})" class="text-xs bg-slate-100 px-3 py-1 rounded hover:bg-slate-200 transition">Log Usage</button>
+                        <button onclick="logManualUsage(${f.id})" class="bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white p-2 rounded-lg transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="3" stroke-linecap="round"/></svg>
+                        </button>
                     </div>
                 </div>
             `).join('');
         }
-        async function handle3MF(file) {
-            const zip = await JSZip.loadAsync(file);
 
-            // 3MF files contain a .gcode or metadata file with the slice info
-            // We look for the filament usage comment usually found at the end
-            let filamentGrams = 0;
-
-            // Search common metadata locations in Bambu/Prusa 3MFs
-            const files = Object.keys(zip.files);
-            const gcodeFile = files.find(f => f.endsWith('.gcode') || f.includes('slice_info'));
-
-            if (gcodeFile) {
-                const content = await zip.file(gcodeFile).async("string");
-
-                // Regex to find "filament used [g] = 123.45"
-                const match = content.match(/filament used \[g\]\s*=\s*([\d.]+)/);
-                if (match) {
-                    filamentGrams = parseFloat(match[1]);
-                }
-            }
-
-            if (filamentGrams > 0) {
-                const spoolId = prompt(`Detected ${filamentGrams}g of usage. Enter Spool ID to subtract from:`);
-                if (spoolId) {
-                    updateWeight(spoolId, filamentGrams);
-                }
-            } else {
-                alert("Could not find filament weight in this 3MF. Ensure it's a 'Project' file saved after slicing.");
-            }
-        }
-
-        async function updateWeight(id, grams) {
-            await fetch(`/api/usage`, {
-                method: 'POST',
-                body: JSON.stringify({ filament_id: id, used: grams, project: "3MF Import" })
-            });
-            loadFilaments(); // Refresh UI
-        }
-
-        // EXCEL IMPORT LOGIC
+        // 3. EXCEL IMPORT (Matching your headers: Brand, Colour, Material, etc.)
         document.getElementById('excel-upload').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-            const formatted = jsonData.map(row => ({
-                brand: row.Brand || row.brand || 'Generic',
-                material: row.Material || row.material || 'PLA',
-                color_name: row.Color || row.color_name || 'Natural',
-                weight_current: row.Weight || row.weight_current || 1000
-            }));
+            const items = jsonData.map(row => ({
+                brand: row.Brand,
+                material: row.Material,
+                color_name: row.Colour, // Corrected for your "Colour" header
+                style: row.Style,
+                code: row.Code,
+                barcode: row.Barcode,
+                weight_current: 1000 // Default for new import
+            })).filter(i => i.brand);
 
             await fetch('/api/filaments', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formatted)
+                body: JSON.stringify({ action: 'bulk_import', items })
             });
             loadFilaments();
         });
+
+        // 4. BAMBU 3MF LOGGING
+        document.getElementById('threemf-upload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            const zip = await JSZip.loadAsync(file);
+            let filamentGrams = 0;
+
+            for (let name of Object.keys(zip.files)) {
+                if (name.endsWith('.gcode')) {
+                    const content = await zip.file(name).async("string");
+                    const match = content.match(/filament used \[g\]\s*=\s*([\d.]+)/);
+                    if (match) { 
+                        filamentGrams = parseFloat(match[1]); 
+                        break; 
+                    }
+                }
+            }
+
+            if (filamentGrams > 0) {
+                const spoolId = prompt(`" ${file.name} " uses ${filamentGrams}g.\n\nEnter Spool ID to subtract from:`);
+                if (spoolId) {
+                    await fetch(`/api/usage`, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'log_usage', filament_id: spoolId, grams: filamentGrams, project: file.name })
+                    });
+                    loadFilaments();
+                }
+            } else {
+                alert("Weight data missing. Ensure project was saved after slicing in Bambu Studio.");
+            }
+        });
+
+        function logManualUsage(id) {
+            const used = prompt("Grams to subtract:");
+            if (used) {
+                fetch(`/api/usage`, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'log_usage', filament_id: id, grams: used, project: "Manual Correction" })
+                }).then(() => loadFilaments());
+            }
+        }
 
         // Initialize
         showTab('dashboard');
     </script>
 </body>
-
 </html>
