@@ -1310,26 +1310,33 @@
                 const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, range: 1 });
 
                 const items = rows
-                    .filter(r => r['Brand'])
+                    .filter(r => r['Brand'] && r['Amount In Stock'] !== undefined) // Filter out empty rows and rows with no Brand
                     .map(r => {
-                        // Weight Now = actual grams remaining; Amount In Stock = spool count
-                        const weightNow = parseFloat(r['Weight Now']);
-                        const amtSpools = parseFloat(r['Amount In Stock']) || 1;
-                        // Use Weight Now if available, otherwise assume full 1kg spools
-                        const weightCurrent = !isNaN(weightNow) && weightNow >= 0 ? weightNow : amtSpools * 1000;
-                        const colourName = r['Colour'] || null;
+                        // Extract data from the row
+                        const brand = r['Brand'];
+                        const colour = r['Colour'];
+                        const style = r['Style'] || '';
+                        const material = r['Material'];
+                        const code = String(r['Code'] || '');
+                        const barcode = String(r['Barcode'] || '');
+                        const web_address = r['Web Address'] || null;
+                        const total_purchased = parseFloat(r['Total Purchased']) || 0;
+                        const filament_left = parseFloat(r['Filament Left']) || 0;
+
+                        // Adjust weight_current to be the current remaining filament
+                        let weight_current = filament_left;
 
                         return {
-                            brand: r['Brand'] || null,
-                            material: r['Material'] || null,
-                            color_name: colourName,
-                            style: r['Style'] || null,
-                            code: String(r['Code'] || ''),
-                            barcode: String(r['Barcode'] || ''),
-                            web_address: r['Web Address'] || null,
-                            weight_current: weightCurrent,
-                            total_purchased: parseFloat(r['Total Purchased']) || null,
-                            color_hex: getColourHex(colourName),
+                            brand: brand,
+                            material: material,
+                            color_name: colour,
+                            style: style,
+                            code: code,
+                            barcode: barcode,
+                            web_address: web_address,
+                            weight_current: weight_current,
+                            total_purchased: total_purchased, // Keep as is
+                            color_hex: getColourHex(colour),
                         };
                     });
 
@@ -1348,6 +1355,8 @@
             }
             e.target.value = '';
         });
+
+
 
         // ============================================================
         // EXCEL EXPORT
