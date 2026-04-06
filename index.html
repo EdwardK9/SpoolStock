@@ -1529,37 +1529,21 @@
                 let filamentGrams = 0;
                 let perSlot = []; // [{grams, colour, material}]
 
-                // ── STRATEGY 1: filament_volume_map + filament_density (most accurate for sliced files) ──
+                // ── STRATEGY 1: project_settings.config — capture slot colours only (not weights, unreliable) ──
+                // filament_volume_map is often all zeros; we use this only to pre-populate colours for manual entry
                 const projCfgPath = allFiles.find(n => n.toLowerCase().includes('project_settings'));
                 if (projCfgPath) {
                     try {
                         const cfg = JSON.parse(await zip.files[projCfgPath].async('string'));
-                        const volMap = (cfg.filament_volume_map || []).map(v => parseFloat(v) || 0);
-                        const densities = (cfg.filament_density || []).map(v => parseFloat(v) || 1.24);
                         const colours = cfg.filament_colour || [];
                         const types = cfg.filament_type || [];
-
-                        // volume is in mm³, density in g/cm³ → weight(g) = vol(mm³) * density / 1000
-                        const weights = volMap.map((vol, i) => ({
-                            grams: Math.round((vol * (densities[i] || 1.24) / 1000) * 10) / 10,
-                            colour: colours[i] || null,
-                            material: types[i] || 'PLA'
-                        })).filter(s => s.grams > 0);
-
-                        if (weights.length) {
-                            perSlot = weights;
-                            filamentGrams = weights.reduce((a, b) => a + b.grams, 0);
-                            console.log('[3MF] filament_volume_map slots:', weights);
-                        }
-
-                        // Even if no weight data, capture slot colours for manual entry UI
-                        if (!perSlot.length && colours.length) {
+                        if (colours.length && !perSlot.length) {
                             perSlot = colours.map((colour, i) => ({
                                 grams: 0,
                                 colour: colour,
                                 material: types[i] || 'PLA'
                             }));
-                            console.log('[3MF] No slice data — captured', perSlot.length, 'colour slots');
+                            console.log('[3MF] project_settings colour slots (fallback only):', perSlot.length);
                         }
                     } catch(err) {
                         console.warn('[3MF] project_settings parse failed:', err);
@@ -1567,36 +1551,36 @@
                 }
 
                 // ── STRATEGY 2: slice_info.config — read per-filament used_g and total weight ──
-                if (!filamentGrams) {
-                    const sliceInfoPath = allFiles.find(n => n.toLowerCase().includes('slice_info'));
-                    if (sliceInfoPath) {
-                        const txt = await zip.files[sliceInfoPath].async('string');
+                // This is the AUTHORITATIVE source — only filaments actually used in the print appear here
+                const sliceInfoPath = allFiles.find(n => n.toLowerCase().includes('slice_info'));
+                if (sliceInfoPath) {
+                    const txt = await zip.files[sliceInfoPath].async('string');
 
-                        // Per-filament entries: used_g="12.34" — sum all of them
-                        const usedGMatches = [...txt.matchAll(/used_g\s*=\s*"([0-9.]+)"/gi)];
-                        if (usedGMatches.length) {
-                            const slots = usedGMatches.map(m => parseFloat(m[1])).filter(v => v > 0);
-                            filamentGrams = slots.reduce((a, b) => a + b, 0);
-                            console.log('[3MF] slice_info used_g per slot:', slots, '→', filamentGrams);
+                    // Parse each <filament .../> element that was actually used
+                    // e.g. <filament id="2" type="PLA" color="#424379" used_g="98.02" used_for_object="true" .../>
+                    const filamentTags = [...txt.matchAll(/<filament\s([^>]+)\/>/gi)];
+                    const usedSlots = filamentTags.map(match => {
+                        const attrs = match[1];
+                        const get = key => { const m = attrs.match(new RegExp(key + '\\s*=\\s*"([^"]*)"', 'i')); return m ? m[1] : null; };
+                        return {
+                            grams: parseFloat(get('used_g')) || 0,
+                            colour: get('color'),
+                            material: get('type') || 'PLA',
+                            usedForObject: get('used_for_object') !== 'false'
+                        };
+                    }).filter(s => s.grams > 0);
 
-                            // Also grab colours from slice_info if we don't have them yet
-                            if (!perSlot.length) {
-                                const colorMatches = [...txt.matchAll(/color\s*=\s*"([^"]+)"/gi)];
-                                const typeMatches  = [...txt.matchAll(/type\s*=\s*"([^"]+)"/gi)];
-                                perSlot = slots.map((g, i) => ({
-                                    grams: g,
-                                    colour: colorMatches[i] ? colorMatches[i][1] : null,
-                                    material: typeMatches[i] ? typeMatches[i][1] : 'PLA'
-                                }));
-                            }
-                        } else {
-                            // Fallback: single weight="98.02" on the plate metadata
-                            const wm = txt.match(/key\s*=\s*"weight"\s+value\s*=\s*"([0-9.]+)"/i)
-                                    || txt.match(/\bweight\s*=\s*"([0-9.]+)"/i);
-                            if (wm) {
-                                filamentGrams = parseFloat(wm[1]);
-                                console.log('[3MF] slice_info plate weight:', filamentGrams);
-                            }
+                    if (usedSlots.length) {
+                        perSlot = usedSlots;
+                        filamentGrams = usedSlots.reduce((a, b) => a + b.grams, 0);
+                        console.log('[3MF] slice_info filament slots used:', usedSlots);
+                    } else {
+                        // Fallback: single plate weight metadata
+                        const wm = txt.match(/key\s*=\s*"weight"\s+value\s*=\s*"([0-9.]+)"/i)
+                                || txt.match(/\bweight\s*=\s*"([0-9.]+)"/i);
+                        if (wm) {
+                            filamentGrams = parseFloat(wm[1]);
+                            console.log('[3MF] slice_info plate weight:', filamentGrams);
                         }
                     }
                 }
