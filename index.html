@@ -888,8 +888,7 @@
 
     <!-- ======= SPOOL DETAIL SIDEBAR ======= -->
     <div id="sidebar-overlay" onclick="closeSidebar()"
-        style="display:none;position:fixed;inset:0;z-index:200;background:var(--modal-bg);backdrop-filter:blur(4px)">
-    </div>
+        style="display:none;position:fixed;inset:0;z-index:200;background:var(--modal-bg);backdrop-filter:blur(4px)"></div>
 
     <aside id="sidebar" style="
         position:fixed;top:0;right:0;bottom:0;z-index:201;
@@ -915,8 +914,7 @@
                 </div>
                 <div class="flex items-center gap-3 ml-4">
                     <span id="sb-chip" class="color-chip" style="width:36px;height:36px;border-radius:10px"></span>
-                    <button onclick="closeSidebar()"
-                        style="color:var(--muted);font-size:22px;line-height:1;background:none;border:none;cursor:pointer">×</button>
+                    <button onclick="closeSidebar()" style="color:var(--muted);font-size:22px;line-height:1;background:none;border:none;cursor:pointer">×</button>
                 </div>
             </div>
         </div>
@@ -928,8 +926,7 @@
             <div style="margin-bottom:28px">
                 <div class="flex justify-between items-end mb-2">
                     <span class="text-xs mono uppercase tracking-widest" style="color:var(--muted)">In Stock</span>
-                    <span id="sb-weight" class="text-3xl font-black mono" style="color:var(--text)">—<span
-                            class="text-sm font-normal ml-1" style="color:var(--muted)">g</span></span>
+                    <span id="sb-weight" class="text-3xl font-black mono" style="color:var(--text)">—<span class="text-sm font-normal ml-1" style="color:var(--muted)">g</span></span>
                 </div>
                 <div class="progress-bg">
                     <div id="sb-progress" class="progress-fill" style="width:0%;background:var(--green)"></div>
@@ -955,8 +952,7 @@
                     <p id="sb-code" class="text-sm font-bold mono" style="color:var(--text)">—</p>
                 </div>
                 <div class="stat-card" style="padding:14px 16px">
-                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Total Bought
-                    </p>
+                    <p class="text-[10px] mono uppercase tracking-widest mb-1" style="color:var(--muted)">Total Bought</p>
                     <p id="sb-total" class="text-sm font-bold mono" style="color:var(--text)">—</p>
                 </div>
             </div>
@@ -1271,29 +1267,29 @@
 
             return `<div class="spool-card p-5 ${isLow ? 'low-stock' : ''} ${isEmpty ? 'empty' : ''}" style="--card-accent:${hex};cursor:pointer"
                 data-id="${f.id}"
-                data-brand="${(f.brand || '').replace(/"/g, '&quot;')}"
-                data-material="${(f.material || '').replace(/"/g, '&quot;')}"
-                data-color-name="${(f.color_name || '').replace(/"/g, '&quot;')}"
-                data-style="${(f.style || '').replace(/"/g, '&quot;')}"
-                data-code="${(f.code || '').replace(/"/g, '&quot;')}"
-                data-barcode="${(f.barcode || '').replace(/"/g, '&quot;')}"
-                data-web-address="${(f.web_address || '').replace(/"/g, '&quot;')}"
+                data-brand="${(f.brand||'').replace(/"/g,'&quot;')}"
+                data-material="${(f.material||'').replace(/"/g,'&quot;')}"
+                data-color-name="${(f.color_name||'').replace(/"/g,'&quot;')}"
+                data-style="${(f.style||'').replace(/"/g,'&quot;')}"
+                data-code="${(f.code||'').replace(/"/g,'&quot;')}"
+                data-barcode="${(f.barcode||'').replace(/"/g,'&quot;')}"
+                data-web-address="${(f.web_address||'').replace(/"/g,'&quot;')}"
                 data-weight-current="${w}"
                 data-total-purchased="${total}"
                 data-hex="${hex}"
                 onclick="openSidebar(this)"
-                >
-                <div class="flex justify-between items-start mb-3">
-                    <div style="flex:1;min-width:0">
-                        <h3 class="font-black text-lg leading-tight" style="color:var(--text)">${f.color_name || 'Unknown'}</h3>
-                        <p class="text-sm font-medium mt-0.5 truncate" style="color:var(--text2)">${f.style ? `· ${f.style}` : ''} | ${f.brand || '?'}</p>
-                    </div>
-                    <div class="flex flex-col items-end gap-2 ml-3">
-                        <span class="color-chip" style="background:${hex}"></span>
-                        ${f.id ? `<span class="text-[10px] mono" style="color:var(--muted)">#${f.id}</span>` : ''}
-                    </div>
-                </div>
-
+            >
+        <div class="flex justify-between items-start mb-3">
+            <div style="flex:1;min-width:0">
+                <span class="badge mb-2" style="background:${ms.bg};color:${ms.text}">${f.material || '?'}</span>
+                <h3 class="font-black text-lg leading-tight" style="color:var(--text)">${f.brand || 'Unknown'}</h3>
+                <p class="text-sm font-medium mt-0.5 truncate" style="color:var(--text2)">${f.color_name || '—'}${f.style ? ' · ' + f.style : ''}</p>
+            </div>
+            <div class="flex flex-col items-end gap-2 ml-3">
+                <span class="color-chip" style="background:${hex}"></span>
+                ${f.id ? `<span class="text-[10px] mono" style="color:var(--muted)">#${f.id}</span>` : ''}
+            </div>
+        </div>
 
         <div class="border-t pt-3 mt-1" style="border-color:var(--border)">
             <div class="flex justify-between items-end mb-2">
@@ -1527,54 +1523,109 @@
 
             try {
                 const zip = await JSZip.loadAsync(file);
+                const allFiles = Object.keys(zip.files);
+                console.log('[3MF] Files in archive:', allFiles);
+
                 let filamentGrams = 0;
+                const projectName = file.name.replace(/\.3mf$/i, '');
 
-                for (const name of Object.keys(zip.files)) {
-                    if (zip.files[name].dir) continue;
-                    const lower = name.toLowerCase();
-                    if (lower.endsWith('.gcode') || lower.includes('gcode')) {
+                // ── STRATEGY 1: Bambu slice_info.config (most reliable) ──
+                // Contains: <filament_weight value="12.34" />  or filament_weight="12.34"
+                const sliceInfoPath = allFiles.find(n => n.toLowerCase().includes('slice_info'));
+                if (sliceInfoPath) {
+                    const txt = await zip.files[sliceInfoPath].async('string');
+                    console.log('[3MF] slice_info.config snippet:', txt.slice(0, 800));
+
+                    // Sum all <filament weight="xx" /> entries
+                    const weightMatches = [...txt.matchAll(/weight\s*=\s*"([0-9.]+)"/gi)];
+                    if (weightMatches.length) {
+                        filamentGrams = weightMatches.reduce((sum, m) => sum + parseFloat(m[1]), 0);
+                        console.log('[3MF] slice_info weight matches:', weightMatches.map(m => m[1]), '→', filamentGrams);
+                    }
+
+                    // Fallback: single filament_weight value
+                    if (!filamentGrams) {
+                        const single = txt.match(/filament_weight[^0-9]*([0-9.]+)/i);
+                        if (single) filamentGrams = parseFloat(single[1]);
+                    }
+                }
+
+                // ── STRATEGY 2: model_settings.config ──
+                if (!filamentGrams) {
+                    const modelCfgPath = allFiles.find(n => n.toLowerCase().includes('model_settings'));
+                    if (modelCfgPath) {
+                        const txt = await zip.files[modelCfgPath].async('string');
+                        console.log('[3MF] model_settings snippet:', txt.slice(0, 600));
+                        const m = txt.match(/filament_used\s*=\s*([0-9.]+)/)
+                                || txt.match(/estimated_weight\s*=\s*([0-9.]+)/);
+                        if (m) filamentGrams = parseFloat(m[1]);
+                    }
+                }
+
+                // ── STRATEGY 3: Any .gcode / .bgcode file embedded ──
+                if (!filamentGrams) {
+                    for (const name of allFiles) {
+                        if (zip.files[name].dir) continue;
+                        const lower = name.toLowerCase();
+                        if (!lower.endsWith('.gcode') && !lower.endsWith('.bgcode') && !lower.includes('gcode')) continue;
+
+                        // bgcode is binary — skip it, only read plain gcode
+                        if (lower.endsWith('.bgcode')) {
+                            console.log('[3MF] Skipping binary bgcode:', name);
+                            continue;
+                        }
+
                         const content = await zip.files[name].async('string');
-
-                        // Try to get total filament used
                         const patterns = [
-                            /; filament used \[g\]\s*=\s*([\d.]+)/i,
-                            /;filament used \[g\]\s*=\s*([\d.]+)/i,
+                            /; filament used \[g\]\s*=\s*([\d.,\s]+)/i,
                             /filament_used_g\s*=\s*([\d.]+)/i,
                             /; total filament used \[g\]\s*=\s*([\d.]+)/i,
-                            /; filament_used_g\s*=\s*([\d.]+)/i,
                         ];
                         for (const pat of patterns) {
                             const m = content.match(pat);
                             if (m) {
-                                filamentGrams = parseFloat(m[1]);
+                                // Could be comma-separated multi-filament list
+                                const parts = m[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                                filamentGrams = parts.reduce((a, b) => a + b, 0);
+                                console.log('[3MF] gcode match:', m[1], '→', filamentGrams);
                                 break;
                             }
                         }
-
-                        // Try to get per-type breakdown (Bambu multi-colour prints)
-                        const multiMatch = content.match(/; filament used \[g\]\s*=\s*([\d.,\s]+)/i);
-                        if (multiMatch) {
-                            const parts = multiMatch[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
-                            if (parts.length > 1) {
-                                for (let i = 0; i < parts.length; i++) {
-                                    filamentGrams += parts[i];
-                                }
-                            }
-                        }
-
                         if (filamentGrams > 0) break;
                     }
                 }
 
-                const projectName = file.name.replace(/\.3mf$/i, '');
+                // ── STRATEGY 4: Scan every XML file for any weight-like key ──
+                if (!filamentGrams) {
+                    for (const name of allFiles) {
+                        if (zip.files[name].dir) continue;
+                        const lower = name.toLowerCase();
+                        if (!lower.endsWith('.xml') && !lower.endsWith('.config') && !lower.endsWith('.json')) continue;
+                        const txt = await zip.files[name].async('string');
+                        const m = txt.match(/"filament_weight"\s*:\s*"?([0-9.]+)"?/i)
+                                || txt.match(/filament_weight[^0-9]*([0-9.]+)/i)
+                                || txt.match(/weight[^0-9]*([0-9.]+)/i);
+                        if (m && parseFloat(m[1]) > 0) {
+                            filamentGrams = parseFloat(m[1]);
+                            console.log('[3MF] Fallback scan found in', name, ':', filamentGrams);
+                            break;
+                        }
+                    }
+                }
+
+                console.log('[3MF] Final grams:', filamentGrams);
+
                 if (filamentGrams <= 0) {
-                    showToast('No weight found in 3MF — was it sliced in Bambu Studio?', 'info');
+                    // Show modal anyway so user can enter manually
+                    showToast('No weight auto-detected — enter manually below.', 'info');
                     openUsageModal(null, projectName, null, null, projectName);
                 } else {
+                    filamentGrams = Math.round(filamentGrams * 10) / 10;
                     showToast(`Found ${filamentGrams}g in 3MF`, 'success');
                     openUsageModal(null, projectName, null, filamentGrams, projectName);
                 }
             } catch (err) {
+                console.error('[3MF] Parse error:', err);
                 showToast('3MF parse failed: ' + err.message, 'error');
             }
             e.target.value = '';
@@ -1727,17 +1778,17 @@
         // SIDEBAR
         // ============================================================
         function openSidebar(cardEl) {
-            const id = cardEl.dataset.id;
-            const brand = cardEl.dataset.brand;
+            const id       = cardEl.dataset.id;
+            const brand    = cardEl.dataset.brand;
             const material = cardEl.dataset.material;
-            const colorName = cardEl.dataset.colorName;
-            const style = cardEl.dataset.style;
-            const code = cardEl.dataset.code;
-            const barcode = cardEl.dataset.barcode;
-            const webAddr = cardEl.dataset.webAddress;
-            const weight = parseFloat(cardEl.dataset.weightCurrent) || 0;
-            const total = parseFloat(cardEl.dataset.totalPurchased) || 0;
-            const hex = cardEl.dataset.hex || '#4f8ef7';
+            const colorName= cardEl.dataset.colorName;
+            const style    = cardEl.dataset.style;
+            const code     = cardEl.dataset.code;
+            const barcode  = cardEl.dataset.barcode;
+            const webAddr  = cardEl.dataset.webAddress;
+            const weight   = parseFloat(cardEl.dataset.weightCurrent) || 0;
+            const total    = parseFloat(cardEl.dataset.totalPurchased) || 0;
+            const hex      = cardEl.dataset.hex || '#4f8ef7';
 
             // Accent bar
             document.getElementById('sb-accent-bar').style.background = hex;
@@ -1800,7 +1851,7 @@
                         <div class="flex justify-between items-center py-2.5" style="border-bottom:1px solid var(--border)">
                             <div>
                                 <p class="text-sm font-medium" style="color:var(--text)">${u.project_name || 'Manual'}</p>
-                                <p class="text-xs mono" style="color:var(--muted)">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
+                                <p class="text-xs mono" style="color:var(--muted)">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : ''}</p>
                             </div>
                             <span class="text-sm font-black mono" style="color:var(--orange)">−${u.weight_used}g</span>
                         </div>
