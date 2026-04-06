@@ -95,3 +95,23 @@ function json(data, status = 200) {
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
 }
+// Add this to your filaments.js API
+export async function onRequestPost(context) {
+    const data = await context.request.json();
+    const db = context.env.DB;
+
+    if (data.action === 'bulk_import') {
+        // ... existing bulk_import code ...
+    }
+
+    if (data.action === 'add_single') {
+        // ... existing add_single code ...
+    }
+
+    if (data.action === 'delete_all') {
+        await db.prepare("DELETE FROM filaments").run();
+        return json({ ok: true, deleted: 'all' }, 200);
+    }
+
+    return json({ error: 'Unknown action' }, 400);
+}
