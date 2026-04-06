@@ -1,469 +1,1617 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filament Manager</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKcmAx0HuxriusCpQYMqBzGtKulVTOlR8wXFSGIUv3/Nrtzlwkw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" />
-    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" />
+    <title>FilamentFlow | P1S Inventory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,400;0,500;0,700;0,900;1,400&display=swap"
+        rel="stylesheet">
     <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --light-color: #ecf0f1;
-            --dark-color: #222;
-            --text-color: #333;
+        /* =========================================================
+           THEME TOKENS
+        ========================================================= */
+        :root[data-theme="dark"] {
+            --bg: #0b0d12;
+            --surface: #13161f;
+            --surface2: #1a1e2b;
+            --surface3: #222737;
+            --border: #262d3f;
+            --border2: #303850;
+            --accent: #4f8ef7;
+            --accent-hover: #3a7ef5;
+            --accent2: #7c5cbf;
+            --text: #e8eaf0;
+            --text2: #9aa3b8;
+            --muted: #5a6278;
+            --green: #22c55e;
+            --orange: #f59e0b;
+            --red: #ef4444;
+            --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --modal-bg: rgba(0, 0, 0, 0.75);
+            --theme-icon: '☀️';
+        }
+
+        :root[data-theme="light"] {
+            --bg: #f0f2f7;
+            --surface: #ffffff;
+            --surface2: #f5f7fc;
+            --surface3: #eaecf4;
+            --border: #dde1ee;
+            --border2: #c8cde0;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --accent2: #7c3aed;
+            --text: #111827;
+            --text2: #4b5563;
+            --muted: #9ca3af;
+            --green: #16a34a;
+            --orange: #d97706;
+            --red: #dc2626;
+            --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            --modal-bg: rgba(0, 0, 0, 0.5);
+            --theme-icon: '🌙';
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            font-family: sans-serif;
-            background-color: var(--dark-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 0;
-            transition: background-color 0.3s, color 0.3s;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
         }
 
-        body.dark-mode {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --light-color: #222;
-            --dark-color: #ecf0f1;
-            --text-color: #eee;
+        .mono {
+            font-family: 'Space Mono', monospace;
         }
 
-        .container {
-            width: 90%;
-            margin: 20px auto;
-            padding: 20px;
-            border-radius: 5px;
-            background-color: var(--light-color);
-        }
-
-        .navbar {
-            background-color: var(--primary-color);
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-
-        .navbar a {
-            color: white;
-            text-decoration: none;
-            padding: 10px 20px;
-            display: inline-block;
-            transition: background-color 0.3s;
-        }
-
-        .navbar a:hover {
-            background-color: var(--secondary-color);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .weight-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-left: 5px;
-        }
-
-        .weight-indicator.full {
-            background-color: green;
-        }
-
-        .weight-indicator.medium {
-            background-color: orange;
-        }
-
-        .weight-indicator.low {
-            background-color: red;
-        }
-
-        .modal {
-            display: none;
+        /* Grid bg (dark only) */
+        body::before {
+            content: '';
             position: fixed;
-            z-index: 1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.4);
-        }
-
-        .modal-content {
-            background-color: var(--light-color);
-            margin: 15% auto;
-            padding: 20px;
-            border-radius: 5px;
-            width: 80%;
-            max-width: 600px;
-        }
-
-        .close {
-            color: #fff;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-
-        .close:hover {
-            color: red;
-            cursor: pointer;
-        }
-
-        input[type="number"],
-        input[type="text"],
-        select {
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        button {
-            background-color: var(--secondary-color);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        button:hover {
-            background-color: #2980b9;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #343a40;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            opacity: 0.8;
+            inset: 0;
+            z-index: 0;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 44px 44px;
+            opacity: 0.25;
+            pointer-events: none;
             transition: opacity 0.3s;
         }
 
-        .toast.show {
+        [data-theme="light"] body::before {
+            opacity: 0.08;
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* NAV */
+        .nav-tab {
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            color: var(--text2);
+        }
+
+        .nav-tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .nav-tab:hover:not(.active) {
+            color: var(--text);
+            border-bottom-color: var(--border2);
+        }
+
+        /* CARDS */
+        .spool-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.22s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+        }
+
+        .spool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--card-accent, var(--accent));
+            opacity: 0;
+            transition: opacity 0.22s;
+        }
+
+        .spool-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border2);
+        }
+
+        .spool-card:hover::before {
             opacity: 1;
+        }
+
+        .spool-card.low-stock {
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+
+        .spool-card.low-stock::before {
+            background: var(--orange);
+            opacity: 1;
+        }
+
+        .spool-card.empty {
+            border-color: rgba(239, 68, 68, 0.2);
+            opacity: 0.55;
+        }
+
+        /* STAT CARDS */
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px 24px;
+            box-shadow: var(--card-shadow);
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        /* BUTTONS */
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 10px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            background: var(--surface2);
+            color: var(--text2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 10px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-ghost:hover {
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* PROGRESS */
+        .progress-bg {
+            background: var(--surface3);
+            border-radius: 99px;
+            height: 5px;
+        }
+
+        .progress-fill {
+            border-radius: 99px;
+            height: 5px;
+            transition: width 0.6s ease;
+        }
+
+        /* CHART */
+        .chart-bar {
+            border-radius: 6px 6px 0 0;
+            transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            min-height: 4px;
+        }
+
+        /* TOAST */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 999;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            max-width: 320px;
+            box-shadow: var(--card-shadow);
+            color: var(--text);
+        }
+
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        #toast.success {
+            border-left: 4px solid var(--green);
+        }
+
+        #toast.error {
+            border-left: 4px solid var(--red);
+        }
+
+        #toast.info {
+            border-left: 4px solid var(--accent);
+        }
+
+        /* MODALS */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: var(--modal-bg);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        /* TABLE */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table thead {
+            background: var(--surface2);
+        }
+
+        .data-table th {
+            padding: 13px 18px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            text-align: left;
+        }
+
+        .data-table td {
+            padding: 13px 18px;
+            font-size: 14px;
+            border-top: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .data-table tr:hover td {
+            background: var(--surface2);
+        }
+
+        /* COLOR CHIP */
+        .color-chip {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 2px solid rgba(128, 128, 128, 0.2);
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        /* BADGE */
+        .badge {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'Space Mono', monospace;
+            letter-spacing: 0.03em;
+        }
+
+        /* SPINNER */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* FADE IN */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-up {
+            animation: fadeUp 0.35s ease forwards;
+        }
+
+        /* HIDDEN */
+        .hidden {
+            display: none !important;
+        }
+
+        /* INPUTS */
+        input[type=number],
+        input[type=text],
+        input[type=url],
+        select,
+        textarea {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            width: 100%;
+            transition: border-color 0.2s, background 0.3s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--muted);
+        }
+
+        select option {
+            background: var(--surface2);
+            color: var(--text);
+        }
+
+        /* THEME TOGGLE */
+        .theme-toggle {
+            width: 44px;
+            height: 24px;
+            background: var(--surface3);
+            border: 1px solid var(--border);
+            border-radius: 99px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .theme-toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        [data-theme="light"] .theme-toggle::after {
+            transform: translateX(20px);
+        }
+
+        /* ACTIONS ROW ON CARD */
+        .card-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* REORDER BADGE */
+        .reorder-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--orange);
+            display: inline-block;
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scale(0.85);
+            }
+        }
+
+        /* SEARCH AUTO INDICATOR */
+        .auto-link {
+            font-size: 10px;
+            color: var(--muted);
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* SECTION HEADER */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border2);
+            border-radius: 3px;
         }
     </style>
 </head>
+
 <body>
+    <div class="content max-w-7xl mx-auto px-4 pb-20">
 
-    <div class="container">
-        <div class="navbar">
-            <a href="#inventory">Inventory</a>
-            <a href="#usage">Usage</a>
-            <a href="#import">Import</a>
+        <!-- HEADER -->
+        <header class="py-8 flex justify-between items-start flex-wrap gap-4">
+            <div>
+                <div class="flex items-center gap-3 mb-1">
+                    <span class="text-2xl">🧵</span>
+                    <h1 class="text-2xl font-black tracking-tight mono uppercase" style="color:var(--text)">
+                        Filament<span style="color:var(--accent)">Flow</span>
+                    </h1>
+                </div>
+                <p class="text-xs mono ml-11" style="color:var(--muted)">Bambu Lab P1S &amp; H2D Inventory</p>
+            </div>
+
+            <div class="flex gap-2 flex-wrap items-center">
+                <!-- Theme toggle -->
+                <div class="flex items-center gap-2 mr-2">
+                    <span class="text-sm" id="theme-sun">☀️</span>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"></button>
+                    <span class="text-sm" id="theme-moon">🌙</span>
+                </div>
+
+                <label class="btn-ghost cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Import Excel
+                    <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
+                </label>
+
+                <label class="btn-primary cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Log 3MF Print
+                    <input type="file" id="threemf-upload" class="hidden" accept=".3mf">
+                </label>
+
+                <button class="btn-ghost" onclick="openAddModal()">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Spool
+                </button>
+
+                <button class="btn-ghost" onclick="exportToExcel()">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export
+                </button>
+            </div>
+        </header>
+
+        <!-- STAT CARDS -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="stat-card">
+                <p class="text-xs mono uppercase tracking-widest mb-1" style="color:var(--muted)">Total Spools</p>
+                <p id="stat-count" class="text-3xl font-black mono" style="color:var(--text)">—</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-xs mono uppercase tracking-widest mb-1" style="color:var(--muted)">Stock Weight</p>
+                <p id="stat-weight" class="text-3xl font-black mono" style="color:var(--green)">—<span
+                        class="text-sm font-normal ml-1" style="color:var(--muted)">kg</span></p>
+            </div>
+            <div class="stat-card">
+                <p class="text-xs mono uppercase tracking-widest mb-1" style="color:var(--muted)">Low / Empty</p>
+                <p id="stat-low" class="text-3xl font-black mono" style="color:var(--orange)">—</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-xs mono uppercase tracking-widest mb-1" style="color:var(--muted)">Materials</p>
+                <p id="stat-types" class="text-3xl font-black mono" style="color:var(--accent2)">—</p>
+            </div>
         </div>
 
-        <div id="inventory">
-            <h2>Inventory</h2>
-            <button id="add-spool-btn">Add Spool</button>
-            <table id="filament-table">
-                <thead>
-                    <tr>
-                        <th>Brand</th>
-                        <th>Material</th>
-                        <th>Color</th>
-                        <th>Weight (g)</th>
-                        <th>Used (g)</th>
-                        <th>Remaining (g)</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Filament rows will be dynamically added here -->
-                </tbody>
-            </table>
-        </div>
+        <!-- NAV -->
+        <nav class="flex gap-6 border-b mb-8" style="border-color:var(--border)">
+            <button onclick="showTab('dashboard')" id="btn-dashboard"
+                class="nav-tab active pb-4 text-sm font-bold mono uppercase tracking-wider">Dashboard</button>
+            <button onclick="showTab('inventory')" id="btn-inventory"
+                class="nav-tab pb-4 text-sm font-bold mono uppercase tracking-wider">Inventory</button>
+            <button onclick="showTab('reorder')" id="btn-reorder"
+                class="nav-tab pb-4 text-sm font-bold mono uppercase tracking-wider flex items-center gap-2">
+                Reorder <span id="reorder-dot" class="reorder-dot hidden"></span>
+            </button>
+            <button onclick="showTab('usage')" id="btn-usage"
+                class="nav-tab pb-4 text-sm font-bold mono uppercase tracking-wider">Usage Log</button>
+        </nav>
 
-        <div id="usage">
-            <h2>Usage</h2>
-            <button id="log-usage-btn">Log Usage</button>
-        </div>
+        <!-- MAIN -->
+        <main>
 
-        <div id="import">
-            <h2>Import</h2>
-            <input type="file" id="file-input" accept=".3mf">
-            <button id="import-btn">Import</button>
+            <!-- ======= DASHBOARD ======= -->
+            <section id="tab-dashboard">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- Material chart -->
+                    <div class="lg:col-span-2"
+                        style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--card-shadow)">
+                        <h3 class="text-sm font-bold mono uppercase tracking-widest mb-6" style="color:var(--muted)">
+                            Material Breakdown</h3>
+                        <div id="material-chart" class="flex items-end gap-3 h-48">
+                            <div class="flex-1 flex items-center justify-center text-sm" style="color:var(--muted)">
+                                Import data to see chart</div>
+                        </div>
+                        <div id="chart-legend" class="flex flex-wrap gap-4 mt-4"></div>
+                    </div>
+
+                    <!-- System panel -->
+                    <div
+                        style="background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--card-shadow)">
+                        <h3 class="text-sm font-bold mono uppercase tracking-widest mb-5" style="color:var(--muted)">
+                            System</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center p-3 rounded-lg"
+                                style="background:rgba(128,128,128,0.05)">
+                                <span class="text-xs mono" style="color:var(--muted)">D1 DATABASE</span>
+                                <span class="text-xs mono font-bold" style="color:var(--green)"
+                                    id="db-status">CONNECTED</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 rounded-lg"
+                                style="background:rgba(128,128,128,0.05)">
+                                <span class="text-xs mono" style="color:var(--muted)">3MF PARSER</span>
+                                <span class="text-xs mono font-bold" style="color:var(--green)">READY</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 rounded-lg"
+                                style="background:rgba(128,128,128,0.05)">
+                                <span class="text-xs mono" style="color:var(--muted)">NEED REORDER</span>
+                                <span class="text-xs mono font-bold" id="sys-low" style="color:var(--orange)">—</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 rounded-lg"
+                                style="background:rgba(128,128,128,0.05)">
+                                <span class="text-xs mono" style="color:var(--muted)">TOTAL USED</span>
+                                <span class="text-xs mono font-bold" id="sys-total-used"
+                                    style="color:var(--accent)">—g</span>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <p class="text-xs mono mb-3" style="color:var(--muted)">STOCK HEALTH</p>
+                            <div class="progress-bg mb-1">
+                                <div id="health-bar" class="progress-fill" style="background:var(--green);width:0%">
+                                </div>
+                            </div>
+                            <p id="health-label" class="text-xs mt-1" style="color:var(--text2)">—</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Low stock alert cards -->
+                <div id="low-stock-section" class="mt-6 hidden">
+                    <h3 class="text-sm font-bold mono uppercase tracking-widest mb-4" style="color:var(--muted)">⚠️ Low
+                        Stock Alerts</h3>
+                    <div id="low-stock-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </div>
+
+                <!-- Brand breakdown -->
+                <div id="brand-section" class="mt-6 hidden">
+                    <h3 class="text-sm font-bold mono uppercase tracking-widest mb-4" style="color:var(--muted)">By
+                        Brand</h3>
+                    <div id="brand-bars" class="space-y-3"
+                        style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px">
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======= INVENTORY ======= -->
+            <section id="tab-inventory" class="hidden">
+                <div class="flex flex-wrap gap-3 mb-6 items-center">
+                    <input type="text" id="search-input" placeholder="Search brand, colour, material…"
+                        style="flex:1;min-width:200px;max-width:280px" oninput="filterCards()">
+                    <select id="filter-material" onchange="filterCards()" style="width:auto;min-width:130px">
+                        <option value="">All Materials</option>
+                    </select>
+                    <select id="filter-style" onchange="filterCards()" style="width:auto;min-width:120px">
+                        <option value="">All Styles</option>
+                    </select>
+                    <select id="filter-brand" onchange="filterCards()" style="width:auto;min-width:130px">
+                        <option value="">All Brands</option>
+                    </select>
+                    <button onclick="toggleInStock()" id="btn-instock" class="btn-ghost text-xs py-2 px-3">In Stock
+                        Only</button>
+                    <span id="filter-count" class="text-xs mono" style="color:var(--muted)"></span>
+                </div>
+                <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+                <p id="no-results" class="text-center py-16 hidden" style="color:var(--muted)">No filaments match your
+                    filters.</p>
+            </section>
+
+            <!-- ======= REORDER ======= -->
+            <section id="tab-reorder" class="hidden">
+                <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-lg font-black" style="color:var(--text)">Reorder List</h2>
+                        <p class="text-sm mt-1" style="color:var(--text2)">Spools with less than 150g remaining — time
+                            to restock.</p>
+                    </div>
+                    <button onclick="copyReorderList()" class="btn-ghost text-sm">
+                        📋 Copy Shopping List
+                    </button>
+                </div>
+                <div id="reorder-list"
+                    style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Spool</th>
+                                <th>Material</th>
+                                <th>Left</th>
+                                <th>Store</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reorder-body">
+                            <tr>
+                                <td colspan="5" class="text-center py-12" style="color:var(--muted)">🎉 All spools well
+                                    stocked!</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ======= USAGE LOG ======= -->
+            <section id="tab-usage" class="hidden">
+                <div class="section-header">
+                    <h2 class="text-lg font-black" style="color:var(--text)">Usage Log</h2>
+                    <button onclick="exportToExcel('usage')" class="btn-ghost text-sm">↓ Export Log</button>
+                </div>
+                <div
+                    style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Project</th>
+                                <th>Filament</th>
+                                <th>Used</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usage-list">
+                            <tr>
+                                <td colspan="4" class="text-center py-12" style="color:var(--muted)">No usage records
+                                    yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ======= ADD / EDIT SPOOL MODAL ======= -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-box">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modal-title" class="text-lg font-black mono uppercase" style="color:var(--text)">Add Spool</h2>
+                <button onclick="closeModal()" class="text-xl leading-none" style="color:var(--muted)">×</button>
+            </div>
+            <div class="space-y-4">
+                <input type="hidden" id="edit-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Brand</label>
+                        <input type="text" id="add-brand" placeholder="Bambu Lab">
+                    </div>
+                    <div>
+                        <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Material</label>
+                        <input type="text" id="add-material" placeholder="PLA">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Colour Name</label>
+                        <input type="text" id="add-colour" placeholder="Charcoal" oninput="previewHex()">
+                    </div>
+                    <div>
+                        <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Style</label>
+                        <input type="text" id="add-style" placeholder="Matte">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Weight (g)</label>
+                        <input type="number" id="add-weight" placeholder="1000" value="1000">
+                    </div>
+                    <div>
+                        <label class="text-xs mono uppercase block mb-1 flex items-center gap-2"
+                            style="color:var(--muted)">
+                            Colour Hex
+                            <span id="hex-preview"
+                                style="width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid var(--border)"></span>
+                        </label>
+                        <input type="text" id="add-hex" placeholder="#2a2a2a" oninput="previewHex()">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Buy URL
+                        (optional)</label>
+                    <input type="url" id="add-url" placeholder="https://…">
+                    <p class="text-xs mt-1 auto-link">Leave blank to auto-generate from brand + name</p>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeModal()" class="btn-ghost flex-1">Cancel</button>
+                <button onclick="submitAddSpool()" class="btn-primary flex-1" id="modal-submit-btn">Add Spool</button>
+            </div>
         </div>
     </div>
 
-    <div class="modal" id="add-spool-modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Add Filament Spool</h2>
-            <label for="brand">Brand:</label>
-            <input type="text" id="brand" required><br>
-            <label for="material">Material:</label>
-            <select id="material"></select><br>
-            <label for="color">Color:</label>
-            <input type="color" id="color"><br>
-            <label for="weight">Weight (g):</label>
-            <input type="number" id="weight" required><br>
-            <button onclick="submitAddSpool()">Add</button>
+    <!-- ======= LOG USAGE MODAL ======= -->
+    <div id="usage-modal-overlay" class="modal-overlay">
+        <div class="modal-box" style="max-width:440px">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-black mono uppercase" style="color:var(--text)">Log Usage</h2>
+                <button onclick="closeUsageModal()" class="text-xl leading-none" style="color:var(--muted)">×</button>
+            </div>
+            <p id="usage-modal-label" class="text-sm mb-5 leading-relaxed" style="color:var(--text2)"></p>
+            <div class="space-y-4">
+                <div id="usage-picker-row">
+                    <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Spool</label>
+                    <select id="usage-spool-picker" style="width:100%">
+                        <option value="">— Select spool —</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Grams Used</label>
+                    <input type="number" id="usage-grams" placeholder="e.g. 45" min="1" step="0.1">
+                </div>
+                <div>
+                    <label class="text-xs mono uppercase block mb-1" style="color:var(--muted)">Project Name
+                        (optional)</label>
+                    <input type="text" id="usage-project" placeholder="My Print">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeUsageModal()" class="btn-ghost flex-1">Cancel</button>
+                <button onclick="submitUsage()" class="btn-primary flex-1">Log Usage</button>
+            </div>
         </div>
     </div>
 
-    <div class="modal" id="usage-modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Log Usage</h2>
-            <label for="usage-amount">Used (g):</label>
-            <input type="number" id="usage-amount" required><br>
-            <button onclick="submitUsage()">Log</button>
-        </div>
-    </div>
+    <!-- TOAST -->
+    <div id="toast"></div>
 
-    <div id="toast" class="toast"></div>
-
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
     <script>
-        let filaments = []; // Initialize filaments array
+        // ============================================================
+        // STATE
+        // ============================================================
+        let filaments = [];
+        let usageLog = [];
+        let activeTab = 'dashboard';
+        let inStockFilter = false;
+        let editingId = null;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadAll();
+        // ============================================================
+        // THEME
+        // ============================================================
+        function initTheme() {
+            const saved = localStorage.getItem('ff-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+        }
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('ff-theme', next);
+        }
+        initTheme();
 
-            // Get the modal
-            var modal = document.getElementById("add-spool-modal");
-            var usageModal = document.getElementById("usage-modal");
+        // ============================================================
+        // COLOUR HELPERS
+        // ============================================================
+        const COLOUR_MAP = {
+            'apple green': '#7dc95e', 'ash grey': '#8a8a8a', 'bambu lab green': '#00ae42',
+            'bambu green': '#00ae42', 'black': '#1a1a1a', 'blue': '#1e6fcf',
+            'bright green': '#39d353', 'brown': '#7b4f2e', 'charcoal': '#3c3c3c',
+            'cyan': '#00b4d8', 'dark green': '#1a5c2a', 'desert tan': '#c2a97a',
+            'gold': '#d4a017', 'gray': '#8a8a8a', 'grey': '#8a8a8a',
+            'ivory white': '#f5f0e8', 'jade white': '#e8f5e9', 'lemon yellow': '#f5e642',
+            'light blue': '#6cb4e4', 'light grey': '#d1d5db', 'matte black': '#1a1a1a',
+            'matte white': '#f0f0f0', 'navy blue': '#1e3a5f', 'orange': '#f5890a',
+            'pink': '#f472b6', 'purple': '#9333ea', 'red': '#dc2626',
+            'silver': '#c0c0c0', 'white': '#f8f8f8', 'yellow': '#facc15',
+            'basic black': '#1a1a1a', 'basic white': '#f8f8f8',
+        };
+        function getColourHex(name) {
+            if (!name) return '#4f8ef7';
+            const low = name.toLowerCase();
+            if (COLOUR_MAP[low]) return COLOUR_MAP[low];
+            // try last word
+            const last = low.split(' ').pop();
+            return COLOUR_MAP[last] || '#4f8ef7';
+        }
 
-            // Get the button that opens the modal
-            var addSpoolBtn = document.getElementById("add-spool-btn");
-            var logUsageBtn = document.getElementById("log-usage-btn");
-
-            // When the user clicks the button, open the modal
-            addSpoolBtn.onclick = function() {
-                modal.style.display = "block";
+        // ============================================================
+        // BUY LINK GENERATOR
+        // ============================================================
+        function getBuyLink(f) {
+            if (f.web_address) return f.web_address;
+            const brand = (f.brand || '').toLowerCase();
+            const query = encodeURIComponent(`${f.brand || ''} ${f.material || ''} ${f.color_name || ''} ${f.style || ''} filament`);
+            if (brand.includes('bambu')) {
+                return `https://uk.store.bambulab.com/search?type=product&q=${encodeURIComponent(`${f.color_name || ''} ${f.material || ''} ${f.style || ''}`.trim())}`;
             }
+            return `https://www.amazon.co.uk/s?k=${query}`;
+        }
 
-            logUsageBtn.onclick = function() {
-                usageModal.style.display = "block";
-            }
+        // ============================================================
+        // MATERIAL BADGE STYLES
+        // ============================================================
+        const MAT_COLOURS = {
+            'PLA': { bg: 'rgba(79,142,247,0.15)', text: '#4f8ef7' },
+            'PETG': { bg: 'rgba(34,197,94,0.15)', text: '#22c55e' },
+            'ABS': { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b' },
+            'ASA': { bg: 'rgba(239,68,68,0.15)', text: '#ef4444' },
+            'TPU': { bg: 'rgba(168,85,247,0.15)', text: '#a855f7' },
+            'PA': { bg: 'rgba(20,184,166,0.15)', text: '#14b8a6' },
+            'PC': { bg: 'rgba(236,72,153,0.15)', text: '#ec4899' },
+            'PLA-CF': { bg: 'rgba(79,142,247,0.15)', text: '#4f8ef7' },
+        };
+        function matStyle(mat) {
+            return MAT_COLOURS[(mat || '').toUpperCase()] || { bg: 'rgba(124,92,191,0.15)', text: '#7c5cbf' };
+        }
 
-            // Get the button that closes the modal
-            var span = document.getElementsByClassName("close")[0];
-            var usageSpan = document.getElementsByClassName("close")[1];
+        // ============================================================
+        // NAV
+        // ============================================================
+        function showTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('section[id^="tab-"]').forEach(s => s.classList.add('hidden'));
+            document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+            document.getElementById('btn-' + tab).classList.add('active');
+            if (tab === 'inventory') renderInventory();
+            if (tab === 'usage') loadUsage();
+            if (tab === 'reorder') renderReorder();
+        }
 
-            // When the user clicks on <span> (x), close the modal
-            span.onclick = function() {
-                modal.style.display = "none";
-            }
+        // ============================================================
+        // API
+        // ============================================================
+        async function apiFetch(path, opts = {}) {
+            const res = await fetch(path, opts);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        }
 
-            usageSpan.onclick = function() {
-                usageModal.style.display = "none";
-            }
-
-            // When the user clicks anywhere outside of the modal, close it
-            window.onclick = function(event) {
-                if (event.target == modal) {
-                    modal.style.display = "none";
-                }
-                if (event.target == usageModal) {
-                    usageModal.style.display = "none";
-                }
-            }
-
-            // Keyboard shortcuts
-            document.addEventListener('keydown', (event) => {
-                if (event.ctrlKey || event.metaKey) {
-                    if (event.key === 'k') {
-                        addSpoolBtn.click();
-                    }
-                    if (event.key === 'e') {
-                        // Implement export functionality here
-                        console.log('Export to Excel not implemented');
-                    }
-                }
-            });
-        });
-
+        // ============================================================
+        // LOAD
+        // ============================================================
         async function loadAll() {
             try {
-                const response = await fetch('/api/filaments');
-                filaments = await response.json();
-                renderInventory();
-            } catch (error) {
-                console.error('Error loading filaments:', error);
-                showAlert('Error loading filaments. Please check the console.');
+                filaments = await apiFetch('/api/filaments');
+                updateStats();
+                renderDashboard();
+                if (activeTab === 'inventory') renderInventory();
+                if (activeTab === 'reorder') renderReorder();
+            } catch {
+                showToast('Could not load data — check D1 binding.', 'error');
+                document.getElementById('db-status').textContent = 'ERROR';
+                document.getElementById('db-status').style.color = 'var(--red)';
             }
         }
 
+        // ============================================================
+        // STATS
+        // ============================================================
+        function updateStats() {
+            const total = filaments.length;
+            const totalGrams = filaments.reduce((a, f) => a + (parseFloat(f.weight_current) || 0), 0);
+            const lowCount = filaments.filter(f => {
+                const w = parseFloat(f.weight_current) || 0;
+                return w < 150;
+            }).length;
+            const mats = [...new Set(filaments.map(f => f.material).filter(Boolean))].length;
+
+            document.getElementById('stat-count').textContent = total;
+            document.getElementById('stat-weight').innerHTML =
+                (totalGrams / 1000).toFixed(2) + '<span class="text-sm font-normal ml-1" style="color:var(--muted)">kg</span>';
+            document.getElementById('stat-low').textContent = lowCount;
+            document.getElementById('stat-types').textContent = mats;
+            document.getElementById('sys-low').textContent = lowCount;
+
+            // Total used (from usageLog if loaded)
+            const totalUsed = usageLog.reduce((a, u) => a + (parseFloat(u.weight_used) || 0), 0);
+            document.getElementById('sys-total-used').textContent = totalUsed > 0 ? (totalUsed / 1000).toFixed(2) + 'kg' : '—';
+
+            const wellStocked = filaments.filter(f => (parseFloat(f.weight_current) || 0) >= 150).length;
+            const pct = total > 0 ? Math.round((wellStocked / total) * 100) : 0;
+            document.getElementById('health-bar').style.width = pct + '%';
+            document.getElementById('health-bar').style.background = pct > 70 ? 'var(--green)' : pct > 40 ? 'var(--orange)' : 'var(--red)';
+            document.getElementById('health-label').textContent = `${pct}% of spools well-stocked`;
+
+            // Reorder dot
+            const needReorder = filaments.filter(f => (parseFloat(f.weight_current) || 0) < 150).length;
+            document.getElementById('reorder-dot').classList.toggle('hidden', needReorder === 0);
+        }
+
+        // ============================================================
+        // DASHBOARD
+        // ============================================================
+        function renderDashboard() {
+            if (!filaments.length) return;
+
+            // Material chart
+            const byMat = {};
+            filaments.forEach(f => { const m = f.material || 'Unknown'; byMat[m] = (byMat[m] || 0) + 1; });
+            const sorted = Object.entries(byMat).sort((a, b) => b[1] - a[1]);
+            const max = Math.max(...sorted.map(e => e[1]));
+            const colours = ['#4f8ef7', '#22c55e', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6', '#ef4444', '#f97316'];
+
+            document.getElementById('material-chart').innerHTML = sorted.map(([mat, cnt], i) => {
+                const h = Math.max(20, Math.round((cnt / max) * 160));
+                return `<div class="flex flex-col items-center gap-1 flex-1">
+            <span class="text-xs mono" style="color:var(--text2)">${cnt}</span>
+            <div class="chart-bar w-full" style="height:${h}px;background:${colours[i % colours.length]};opacity:0.85"></div>
+            <span style="font-size:10px;color:var(--muted);text-align:center;line-height:1.3" class="mono">${mat}</span>
+        </div>`;
+            }).join('');
+
+            document.getElementById('chart-legend').innerHTML = sorted.map(([mat], i) =>
+                `<div class="flex items-center gap-2">
+            <div style="width:10px;height:10px;border-radius:3px;background:${colours[i % colours.length]}"></div>
+            <span class="text-xs" style="color:var(--text2)">${mat}</span>
+        </div>`
+            ).join('');
+
+            // Low stock alerts
+            const low = filaments.filter(f => (parseFloat(f.weight_current) || 0) < 150);
+            const sec = document.getElementById('low-stock-section');
+            if (low.length) {
+                sec.classList.remove('hidden');
+                document.getElementById('low-stock-cards').innerHTML = low.map(f => spoolCardHTML(f, true)).join('');
+            } else {
+                sec.classList.add('hidden');
+            }
+
+            // Brand breakdown
+            const byBrand = {};
+            filaments.forEach(f => { const b = f.brand || 'Unknown'; byBrand[b] = (byBrand[b] || 0) + 1; });
+            const brandSorted = Object.entries(byBrand).sort((a, b) => b[1] - a[1]);
+            const brandMax = Math.max(...brandSorted.map(e => e[1]));
+            if (brandSorted.length > 1) {
+                document.getElementById('brand-section').classList.remove('hidden');
+                document.getElementById('brand-bars').innerHTML = brandSorted.map(([brand, cnt]) =>
+                    `<div class="flex items-center gap-3">
+                <span class="text-xs mono w-24 text-right flex-shrink-0" style="color:var(--text2)">${brand}</span>
+                <div class="flex-1 progress-bg">
+                    <div class="progress-fill" style="width:${Math.round((cnt / brandMax) * 100)}%;background:var(--accent)"></div>
+                </div>
+                <span class="text-xs mono w-6 flex-shrink-0" style="color:var(--muted)">${cnt}</span>
+            </div>`
+                ).join('');
+            }
+        }
+
+        // ============================================================
+        // INVENTORY
+        // ============================================================
         function renderInventory() {
-            const tableBody = document.getElementById('filament-table').querySelector('tbody');
-            tableBody.innerHTML = ''; // Clear existing rows
-
-            filaments.forEach(filament => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${filament.brand}</td>
-                    <td>${filament.material}</td>
-                    <td><span style="background-color: #${filament.color}; width: 20px; height: 20px; display: inline-block;"></span></td>
-                    <td>${filament.weight}</td>
-                    <td>${filament.used}</td>
-                    <td>${filament.remaining}</td>
-                    <td>
-                        <button onclick="openEditModal(${filament.id})">Edit</button>
-                        <button onclick="deleteFilament(${filament.id})">Delete</button>
-                    </td>
-                `;
-                tableBody.appendChild(row);
-
-                // Weight indicator
-                const weightIndicator = document.createElement('span');
-                weightIndicator.classList.add('weight-indicator');
-                if (filament.remaining <= 20) {
-                    weightIndicator.classList.add('low');
-                } else if (filament.remaining <= 50) {
-                    weightIndicator.classList.add('medium');
-                } else {
-                    weightIndicator.classList.add('full');
-                }
-                row.querySelector('td:nth-child(7)').appendChild(weightIndicator);
-            });
+            populateFilters();
+            filterCards();
         }
 
-        function openUsageModal() {
-            document.getElementById('usage-modal').style.display = 'block';
-        }
+        function populateFilters() {
+            const mats = [...new Set(filaments.map(f => f.material).filter(Boolean))].sort();
+            const styles = [...new Set(filaments.map(f => f.style).filter(Boolean))].sort();
+            const brands = [...new Set(filaments.map(f => f.brand).filter(Boolean))].sort();
 
-        function openAddModal() {
-            document.getElementById('add-spool-modal').style.display = 'block';
-        }
-
-        function submitAddSpool() {
-            const brand = document.getElementById('brand').value;
-            const material = document.getElementById('material').value;
-            const color = document.getElementById('color').value;
-            const weight = parseInt(document.getElementById('weight').value);
-
-            if (!brand || !material || !color || !weight) {
-                showAlert('Please fill in all fields.');
-                return;
-            }
-
-            const newFilament = {
-                brand: brand,
-                material: material,
-                color: color,
-                weight: weight,
-                used: 0,
-                remaining: weight
+            const setOpts = (id, items, cur) => {
+                const el = document.getElementById(id);
+                const label = el.options[0].text;
+                el.innerHTML = `<option value="">${label}</option>` + items.map(v => `<option value="${v}">${v}</option>`).join('');
+                el.value = cur;
             };
-
-            fetch('/api/filaments', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(newFilament)
-            })
-            .then(response => {
-                if (response.ok) {
-                    showAlert('Filament added successfully.');
-                    loadAll();
-                    document.getElementById('add-spool-modal').style.display = 'none';
-                } else {
-                    showAlert('Error adding filament.');
-                }
-            })
-            .catch(error => {
-                console.error('Error adding filament:', error);
-                showAlert('Error adding filament. Please check the console.');
-            });
+            const mSel = document.getElementById('filter-material');
+            const sSel = document.getElementById('filter-style');
+            const bSel = document.getElementById('filter-brand');
+            setOpts('filter-material', mats, mSel.value);
+            setOpts('filter-style', styles, sSel.value);
+            setOpts('filter-brand', brands, bSel.value);
         }
 
-        function submitUsage() {
-            const usageAmount = parseInt(document.getElementById('usage-amount').value);
+        function toggleInStock() {
+            inStockFilter = !inStockFilter;
+            document.getElementById('btn-instock').style.borderColor = inStockFilter ? 'var(--accent)' : '';
+            document.getElementById('btn-instock').style.color = inStockFilter ? 'var(--accent)' : '';
+            filterCards();
+        }
 
-            if (isNaN(usageAmount) || usageAmount <= 0) {
-                showAlert('Please enter a valid usage amount.');
+        function filterCards() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const mat = document.getElementById('filter-material').value;
+            const style = document.getElementById('filter-style').value;
+            const brand = document.getElementById('filter-brand').value;
+
+            let filtered = filaments.filter(f => {
+                const w = parseFloat(f.weight_current) || 0;
+                if (inStockFilter && w === 0) return false;
+                if (mat && f.material !== mat) return false;
+                if (style && f.style !== style) return false;
+                if (brand && f.brand !== brand) return false;
+                if (search) {
+                    const hay = `${f.brand} ${f.color_name} ${f.material} ${f.style}`.toLowerCase();
+                    if (!hay.includes(search)) return false;
+                }
+                return true;
+            });
+
+            const grid = document.getElementById('filament-grid');
+            const noRes = document.getElementById('no-results');
+            document.getElementById('filter-count').textContent = `${filtered.length} spool${filtered.length !== 1 ? 's' : ''}`;
+
+            if (!filtered.length) { grid.innerHTML = ''; noRes.classList.remove('hidden'); return; }
+            noRes.classList.add('hidden');
+            grid.innerHTML = filtered.map((f, i) =>
+                `<div class="fade-up" style="animation-delay:${i * 0.025}s">${spoolCardHTML(f)}</div>`
+            ).join('');
+        }
+
+        // ============================================================
+        // SPOOL CARD
+        // ============================================================
+        function spoolCardHTML(f, compact = false) {
+            const w = parseFloat(f.weight_current) || 0;
+            const total = parseFloat(f.total_purchased) || 0;
+            // total_purchased in DB is number of spools, weight per spool ≈ 1000g (or use weight_now logic)
+            const pct = Math.min(100, Math.round((w / 1000) * 100));
+            const isLow = w > 0 && w < 150;
+            const isEmpty = w === 0;
+            const ms = matStyle(f.material);
+            const hex = f.color_hex || getColourHex(f.color_name);
+            const buyLink = getBuyLink(f);
+            const isAuto = !f.web_address;
+
+            return `<div class="spool-card p-5 ${isLow ? 'low-stock' : ''} ${isEmpty ? 'empty' : ''}" style="--card-accent:${hex}">
+        <div class="flex justify-between items-start mb-3">
+            <div style="flex:1;min-width:0">
+                <span class="badge mb-2" style="background:${ms.bg};color:${ms.text}">${f.material || '?'}</span>
+                <h3 class="font-black text-lg leading-tight" style="color:var(--text)">${f.brand || 'Unknown'}</h3>
+                <p class="text-sm font-medium mt-0.5 truncate" style="color:var(--text2)">${f.color_name || '—'}${f.style ? ' · ' + f.style : ''}</p>
+            </div>
+            <div class="flex flex-col items-end gap-2 ml-3">
+                <span class="color-chip" style="background:${hex}"></span>
+                ${f.id ? `<span class="text-[10px] mono" style="color:var(--muted)">#${f.id}</span>` : ''}
+            </div>
+        </div>
+
+        <div class="border-t pt-3 mt-1" style="border-color:var(--border)">
+            <div class="flex justify-between items-end mb-2">
+                <div>
+                    <p class="text-[10px] mono uppercase tracking-widest" style="color:var(--muted)">In Stock</p>
+                    <p class="text-2xl font-black mono" style="color:var(--text)">${Math.round(w)}<span class="text-sm font-normal ml-1" style="color:var(--muted)">g</span></p>
+                </div>
+                <div class="text-right">
+                    ${isEmpty ? `<span class="text-xs mono font-bold" style="color:var(--red)">EMPTY</span>` :
+                    isLow ? `<span class="text-xs mono font-bold" style="color:var(--orange)">LOW STOCK</span>` :
+                        `<span class="text-xs mono font-bold" style="color:var(--green)">OK</span>`}
+                    ${total > 0 ? `<p class="text-[10px] mono mt-0.5" style="color:var(--muted)">×${total} bought</p>` : ''}
+                </div>
+            </div>
+            <div class="progress-bg mb-3">
+                <div class="progress-fill" style="width:${pct}%;background:${isEmpty ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--green)'}"></div>
+            </div>
+
+            <div class="card-actions justify-between">
+                <div class="flex items-center gap-2">
+                    ${buyLink ? `<a href="${buyLink}" target="_blank" 
+                        class="text-xs mono hover:underline flex items-center gap-1"
+                        style="color:var(--accent)" title="${isAuto ? 'Auto-generated link' : 'Custom link'}">
+                        ↗ ${f.brand && f.brand.toLowerCase().includes('bambu') ? 'Bambu Store' : 'Amazon UK'}
+                        ${isAuto ? '<span style="color:var(--muted);font-size:9px">AUTO</span>' : ''}
+                    </a>` : ''}
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="openEditModal(${f.id})" class="btn-ghost py-1.5 px-2 text-xs">✏️ Edit</button>
+                    <button onclick="openUsageModal(${f.id},'${esc(f.brand)} ${esc(f.color_name)}',${w})"
+                            class="btn-ghost py-1.5 px-2 text-xs" ${isEmpty ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
+                        − Use
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+        }
+
+        function esc(s) { return (s || '').replace(/'/g, "\\'"); }
+
+        // ============================================================
+        // REORDER TAB
+        // ============================================================
+        function renderReorder() {
+            const needReorder = filaments.filter(f => (parseFloat(f.weight_current) || 0) < 150)
+                .sort((a, b) => (parseFloat(a.weight_current) || 0) - (parseFloat(b.weight_current) || 0));
+
+            const body = document.getElementById('reorder-body');
+            if (!needReorder.length) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center py-12" style="color:var(--muted)">🎉 All spools well stocked!</td></tr>';
                 return;
             }
+            body.innerHTML = needReorder.map(f => {
+                const w = parseFloat(f.weight_current) || 0;
+                const isEmpty = w === 0;
+                const buyLink = getBuyLink(f);
+                const store = f.brand && f.brand.toLowerCase().includes('bambu') ? 'Bambu Store' : 'Amazon UK';
+                return `<tr>
+            <td>
+                <div class="flex items-center gap-3">
+                    <span class="color-chip" style="background:${f.color_hex || getColourHex(f.color_name)};width:20px;height:20px;border-radius:6px;flex-shrink:0"></span>
+                    <div>
+                        <div class="font-bold text-sm" style="color:var(--text)">${f.brand || '—'}</div>
+                        <div class="text-xs" style="color:var(--text2)">${f.color_name || '—'}${f.style ? ' · ' + f.style : ''}</div>
+                    </div>
+                </div>
+            </td>
+            <td><span class="badge" style="background:${matStyle(f.material).bg};color:${matStyle(f.material).text}">${f.material || '?'}</span></td>
+            <td><span class="mono font-bold text-sm" style="color:${isEmpty ? 'var(--red)' : 'var(--orange)'}">${Math.round(w)}g</span></td>
+            <td><span class="text-xs" style="color:var(--text2)">${store}</span></td>
+            <td>
+                <a href="${buyLink}" target="_blank" class="btn-primary text-xs" style="padding:6px 12px;text-decoration:none">↗ Buy Now</a>
+            </td>
+        </tr>`;
+            }).join('');
+        }
 
-            const selectedFilamentId = parseInt(document.getElementById('selectedFilamentId').value); // Assuming you'd store the selected filament ID somehow
+        function copyReorderList() {
+            const needReorder = filaments.filter(f => (parseFloat(f.weight_current) || 0) < 150);
+            if (!needReorder.length) { showToast('Nothing to reorder!', 'info'); return; }
+            const text = ['=== FilamentFlow Reorder List ===', '']
+                .concat(needReorder.map(f => `• ${f.brand} ${f.color_name} ${f.material}${f.style ? ' ' + f.style : ''} (${Math.round(parseFloat(f.weight_current) || 0)}g left)\n  ${getBuyLink(f)}`))
+                .join('\n');
+            navigator.clipboard.writeText(text).then(() => showToast('Shopping list copied to clipboard!', 'success'));
+        }
 
-            if (isNaN(selectedFilamentId)) {
-                showAlert('No filament selected.');
-                return;
-            }
-
-            fetch(`/api/usage/${selectedFilamentId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ amount: usageAmount })
-            })
-            .then(response => {
-                if (response.ok) {
-                    showAlert('Usage logged successfully.');
-                    loadAll();
-                    document.getElementById('usage-modal').style.display = 'none';
-                } else {
-                    showAlert('Error logging usage.');
+        // ============================================================
+        // USAGE LOG
+        // ============================================================
+        async function loadUsage() {
+            try {
+                usageLog = await apiFetch('/api/usage');
+                updateStats();
+                const body = document.getElementById('usage-list');
+                if (!usageLog.length) {
+                    body.innerHTML = '<tr><td colspan="4" class="text-center py-12" style="color:var(--muted)">No usage records yet.</td></tr>';
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('Error logging usage:', error);
-                showAlert('Error logging usage. Please check the console.');
-            });
+                body.innerHTML = usageLog.map(u => `<tr>
+            <td class="mono text-xs" style="color:var(--text2)">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+            <td class="font-medium" style="color:var(--text)">${u.project_name || '—'}</td>
+            <td style="color:var(--text2)">${u.filament_label || `Spool #${u.filament_id}`}</td>
+            <td class="mono font-bold" style="color:var(--orange)">${u.weight_used}g</td>
+        </tr>`).join('');
+            } catch {
+                showToast('Could not load usage log.', 'error');
+            }
         }
 
-        function showAlert(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
+        // ============================================================
+        // EXCEL IMPORT (updated: reads Weight Now column)
+        // ============================================================
+        document.getElementById('excel-upload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            showToast('Reading Excel file…', 'info');
 
-        // Placeholder functions - implement these
-        function openEditModal(id) {
-            console.log('Edit filament with ID:', id);
-        }
+            try {
+                const data = await file.arrayBuffer();
+                const wb = XLSX.read(data);
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                // headers on row 2 (row index 1, so range: 1)
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, range: 1 });
 
-        function deleteFilament(id) {
-            console.log('Delete filament with ID:', id);
-        }
+                const items = rows
+                    .filter(r => r['Brand'])
+                    .map(r => {
+                        // Weight Now = actual grams remaining; Amount In Stock = spool count
+                        const weightNow = parseFloat(r['Weight Now']);
+                        const amtSpools = parseFloat(r['Amount In Stock']) || 1;
+                        // Use Weight Now if available, otherwise assume full 1kg spools
+                        const weightCurrent = !isNaN(weightNow) && weightNow >= 0 ? weightNow : amtSpools * 1000;
+                        const colourName = r['Colour'] || null;
 
-        // Material options
-        const materials = ['PLA', 'ABS', 'PETG', 'TPU'];
-        const materialSelect = document.getElementById('material');
-        materials.forEach(material => {
-            const option = document.createElement('option');
-            option.value = material;
-            option.textContent = material;
-            materialSelect.appendChild(option);
+                        return {
+                            brand: r['Brand'] || null,
+                            material: r['Material'] || null,
+                            color_name: colourName,
+                            style: r['Style'] || null,
+                            code: String(r['Code'] || ''),
+                            barcode: String(r['Barcode'] || ''),
+                            web_address: r['Web Address'] || null,
+                            weight_current: weightCurrent,
+                            total_purchased: parseFloat(r['Total Purchased']) || null,
+                            color_hex: getColourHex(colourName),
+                        };
+                    });
+
+                if (!items.length) { showToast('No valid rows found.', 'error'); return; }
+
+                await apiFetch('/api/filaments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'bulk_import', items })
+                });
+
+                showToast(`✓ Imported ${items.length} filaments`, 'success');
+                await loadAll();
+            } catch (err) {
+                showToast('Import failed: ' + err.message, 'error');
+            }
+            e.target.value = '';
         });
-    </script>
 
+        // ============================================================
+        // EXCEL EXPORT
+        // ============================================================
+        function exportToExcel(mode = 'full') {
+            try {
+                const wb = XLSX.utils.book_new();
+
+                if (mode !== 'usage') {
+                    // Inventory sheet
+                    const invData = [
+                        ['Brand', 'Material', 'Colour', 'Style', 'Weight (g)', 'Total Purchased', 'Buy URL', 'Colour Hex', 'ID']
+                    ].concat(filaments.map(f => [
+                        f.brand, f.material, f.color_name, f.style,
+                        parseFloat(f.weight_current) || 0,
+                        f.total_purchased || '',
+                        getBuyLink(f),
+                        f.color_hex || getColourHex(f.color_name),
+                        f.id
+                    ]));
+                    const invSheet = XLSX.utils.aoa_to_sheet(invData);
+                    // Column widths
+                    invSheet['!cols'] = [20, 10, 18, 12, 14, 16, 50, 14, 8].map(w => ({ wch: w }));
+                    XLSX.utils.book_append_sheet(wb, invSheet, 'Inventory');
+                }
+
+                if (usageLog.length > 0 || mode === 'usage') {
+                    const usageData = [
+                        ['Date', 'Project', 'Filament', 'Grams Used']
+                    ].concat(usageLog.map(u => [
+                        u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : '',
+                        u.project_name || '',
+                        u.filament_label || `Spool #${u.filament_id}`,
+                        u.weight_used
+                    ]));
+                    const usageSheet = XLSX.utils.aoa_to_sheet(usageData);
+                    usageSheet['!cols'] = [14, 24, 30, 12].map(w => ({ wch: w }));
+                    XLSX.utils.book_append_sheet(wb, usageSheet, 'Usage Log');
+                }
+
+                const filename = `FilamentFlow_Export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                showToast('✓ Exported to ' + filename, 'success');
+            } catch (err) {
+                showToast('Export failed: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // 3MF PARSE
+        // ============================================================
+        document.getElementById('threemf-upload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            showToast('Parsing 3MF…', 'info');
+
+            try {
+                const zip = await JSZip.loadAsync(file);
+                let filamentGrams = 0;
+                let filamentsByType = {}; // key: material/colour, value: grams
+
+                for (const name of Object.keys(zip.files)) {
+                    if (zip.files[name].dir) continue;
+                    const lower = name.toLowerCase();
+                    if (lower.endsWith('.gcode') || lower.includes('gcode')) {
+                        const content = await zip.files[name].async('string');
+
+                        // Try to get total filament used
+                        const patterns = [
+                            /; filament used \[g\]\s*=\s*([\d.]+)/i,
+                            /;filament used \[g\]\s*=\s*([\d.]+)/i,
+                            /filament_used_g\s*=\s*([\d.]+)/i,
+                            /; total filament used \[g\]\s*=\s*([\d.]+)/i,
+                            /; filament_used_g\s*=\s*([\d.]+)/i,
+                        ];
+                        for (const pat of patterns) {
+                            const m = content.match(pat);
+                            if (m) { filamentGrams = parseFloat(m[1]); break; }
+                        }
+
+                        // Try to get per-type breakdown (Bambu multi-colour prints)
+                        // ; filament used [g] = 12.34, 5.67, 8.90
+                        const multiMatch = content.match(/; filament used \[g\]\s*=\s*([\d.,\s]+)/i);
+                        if (multiMatch) {
+                            const parts = multiMatch[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                            if (parts.length > 1) {
+                                parts.forEach((g, i) => { filamentsByType[`Slot ${i + 1}`] = g; });
+                            }
+                        }
+                        if (filamentGrams > 0) break;
+                    }
+                }
+
+                const projectName = file.name.replace(/\.3mf$/i, '');
+                if (filamentGrams <= 0) {
+                    showToast('No weight found in 3MF — was it sliced in Bambu Studio?', 'info');
+                    openUsageModal(null, projectName, null, null, projectName);
+                } else {
+                    showToast(`Found ${filamentGrams}g in 3MF`, 'success');
+                    openUsageModal(null, projectName, null, filamentGrams, projectName);
+                }
+            } catch (err) {
+                showToast('3MF parse failed: ' + err.message, 'error');
+            }
+            e.target.value = '';
+        });
+
+        // ============================================================
+        // USAGE MODAL
+        // ============================================================
+        function openUsageModal(spoolId, name, currentW, prefillGrams = null, prefillProject = null) {
+            const picker = document.getElementById('usage-spool-picker');
+            const inStock = filaments.filter(f => (parseFloat(f.weight_current) || 0) > 0);
+
+            if (spoolId) {
+                const sp = filaments.find(f => f.id == spoolId);
+                picker.innerHTML = `<option value="${spoolId}" selected>${sp?.brand || ''} ${sp?.color_name || ''} (#${spoolId})</option>`;
+                picker.value = spoolId;
+                document.getElementById('usage-picker-row').classList.add('hidden');
+            } else {
+                picker.innerHTML = '<option value="">— Select spool —</option>' +
+                    inStock.map(f => `<option value="${f.id}">${f.brand} ${f.color_name} · ${f.material}${f.style ? ' ' + f.style : ''} (${Math.round(f.weight_current)}g)</option>`).join('');
+                document.getElementById('usage-picker-row').classList.remove('hidden');
+            }
+
+            const lbl = document.getElementById('usage-modal-label');
+            if (spoolId && currentW !== null) {
+                lbl.textContent = `Logging use for: ${name || 'this spool'} (${Math.round(currentW)}g remaining)`;
+            } else if (prefillGrams) {
+                lbl.textContent = `"${name}" used ${prefillGrams}g — select which spool to deduct from:`;
+            } else {
+                lbl.textContent = 'Select spool and enter grams used:';
+            }
+
+            document.getElementById('usage-grams').value = prefillGrams || '';
+            document.getElementById('usage-project').value = prefillProject || '';
+            document.getElementById('usage-modal-overlay').classList.add('open');
+            setTimeout(() => (spoolId ? document.getElementById('usage-grams') : picker).focus(), 60);
+        }
+        function closeUsageModal() { document.getElementById('usage-modal-overlay').classList.remove('open'); }
+
+        async function submitUsage() {
+            const spoolId = document.getElementById('usage-spool-picker').value;
+            const grams = parseFloat(document.getElementById('usage-grams').value);
+            const project = document.getElementById('usage-project').value || 'Manual';
+            if (!spoolId) { showToast('Please select a spool.', 'error'); return; }
+            if (!grams || grams <= 0) { showToast('Enter a valid weight.', 'error'); return; }
+            const spool = filaments.find(f => f.id == spoolId);
+            try {
+                await apiFetch('/api/usage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filament_id: parseInt(spoolId), grams, project })
+                });
+                showToast(`✓ Logged ${grams}g from ${spool?.brand || ''} ${spool?.color_name || ''}`, 'success');
+                closeUsageModal();
+                await loadAll();
+                if (activeTab === 'usage') loadUsage();
+            } catch (err) {
+                showToast('Could not log usage: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // ADD / EDIT MODAL
+        // ============================================================
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('modal-title').textContent = 'Add Spool';
+            document.getElementById('modal-submit-btn').textContent = 'Add Spool';
+            document.getElementById('edit-id').value = '';
+            ['add-brand', 'add-material', 'add-colour', 'add-style', 'add-hex', 'add-url'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('add-weight').value = '1000';
+            document.getElementById('hex-preview').style.background = 'transparent';
+            document.getElementById('modal-overlay').classList.add('open');
+        }
+
+        function openEditModal(id) {
+            const f = filaments.find(x => x.id == id);
+            if (!f) return;
+            editingId = id;
+            document.getElementById('modal-title').textContent = 'Edit Spool';
+            document.getElementById('modal-submit-btn').textContent = 'Save Changes';
+            document.getElementById('edit-id').value = id;
+            document.getElementById('add-brand').value = f.brand || '';
+            document.getElementById('add-material').value = f.material || '';
+            document.getElementById('add-colour').value = f.color_name || '';
+            document.getElementById('add-style').value = f.style || '';
+            document.getElementById('add-weight').value = f.weight_current || 1000;
+            document.getElementById('add-hex').value = f.color_hex || '';
+            document.getElementById('add-url').value = f.web_address || '';
+            document.getElementById('hex-preview').style.background = f.color_hex || getColourHex(f.color_name);
+            document.getElementById('modal-overlay').classList.add('open');
+        }
+
+        function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+        function previewHex() {
+            const hex = document.getElementById('add-hex').value || getColourHex(document.getElementById('add-colour').value);
+            document.getElementById('hex-preview').style.background = hex;
+        }
+
+        async function submitAddSpool() {
+            const item = {
+                brand: document.getElementById('add-brand').value,
+                material: document.getElementById('add-material').value,
+                color_name: document.getElementById('add-colour').value,
+                style: document.getElementById('add-style').value,
+                weight_current: parseFloat(document.getElementById('add-weight').value) || 1000,
+                color_hex: document.getElementById('add-hex').value || getColourHex(document.getElementById('add-colour').value),
+                web_address: document.getElementById('add-url').value || null,
+            };
+            if (!item.brand) { showToast('Brand is required.', 'error'); return; }
+
+            try {
+                if (editingId) {
+                    await apiFetch(`/api/filaments/${editingId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item)
+                    });
+                    showToast('✓ Spool updated', 'success');
+                } else {
+                    await apiFetch('/api/filaments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'add_single', item })
+                    });
+                    showToast('✓ Spool added', 'success');
+                }
+                closeModal();
+                await loadAll();
+                if (activeTab === 'inventory') renderInventory();
+            } catch (err) {
+                showToast('Could not save spool: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        let toastTimer;
+        function showToast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'show ' + type;
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { t.className = ''; }, 3800);
+        }
+
+        // ============================================================
+        // KEYBOARD
+        // ============================================================
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { closeModal(); closeUsageModal(); }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'e') { e.preventDefault(); exportToExcel(); }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openAddModal(); }
+        });
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        loadAll();
+    </script>
 </body>
+
 </html>
