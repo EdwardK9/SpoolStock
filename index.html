@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Filament Tracker</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        .card { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; background: #f4f4f4; padding: 15px; }
+    </style>
+</head>
+<body>
+    <h1>My Spool Inventory</h1>
+
+    <div class="controls">
+        <section>
+            <h3>Import Excel</h3>
+            <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" />
+        </section>
+        <section>
+            <h3>Add Manually</h3>
+            <button onclick="addManual()">+ New Spool</button>
+        </section>
+    </div>
+
+    <div id="spool-list">Loading spools...</div>
+
+    <script>
+        // 1. Fetch and Display Spools
+        async function loadSpools() {
+            const res = await fetch('/api/filaments');
+            const data = await res.json();
+            const container = document.getElementById('spool-list');
+            container.innerHTML = data.map(s => `
+                <div class="card">
+                    <strong>${s.brand}</strong> - ${s.material} (${s.color_name})
+                    <br>Current Weight: <b>${s.weight_current}g</b>
+                </div>
+            `).join('');
+        }
+
+        // 2. Handle Excel Import
+        document.getElementById('excel-upload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+            // Mapping Excel columns to DB names
+            const formatted = jsonData.map(row => ({
+                brand: row.Brand || 'Unknown',
+                material: row.Material || 'PLA',
+                color_name: row.Color || 'Natural',
+                weight_current: row.Weight || 1000
+            }));
+
+            await fetch('/api/filaments', {
+                method: 'POST',
+                body: JSON.stringify(formatted)
+            });
+            loadSpools();
+        });
+
+        loadSpools();
+    </script>
+</body>
+</html>
