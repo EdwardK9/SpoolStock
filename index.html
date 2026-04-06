@@ -1,252 +1,603 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
+
 <head>
-<meta charset="UTF-8">
-<title>FilamentStock</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FilamentFlow | P1S Inventory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,400;0,500;0,700;0,900;1,400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root[data-theme="dark"] {
+            --bg: #0b101a;
+            --surface: #131926;
+            --surface2: #1c2535;
+            --border: #2d384d;
+            --accent: #3b82f6;
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+        }
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+        }
 
-<style>
-body{font-family:Arial;background:#111;color:#eee;margin:30px}
-button{padding:6px 10px;margin:4px;border-radius:6px;border:none;background:#3b82f6;color:white;cursor:pointer}
-input,select{padding:6px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;margin:4px}
-.card{background:#1b1b1b;padding:14px;border-radius:10px;margin-bottom:8px}
-</style>
+        .font-mono {
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* UI Elements from Old Good UI */
+        .glass {
+            background: rgba(19, 25, 38, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        .card-shadow {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .active-tab {
+            color: var(--accent);
+            position: relative;
+        }
+
+        .active-tab::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .animate-slide {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        input,
+        select {
+            background: var(--surface2) !important;
+            border: 1px solid var(--border) !important;
+            color: white !important;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--accent) !important;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+    </style>
 </head>
 
-<body>
-
-<h1>FilamentStock</h1>
-
-<div id="login">
-<h3>Login</h3>
-<input id="password" type="password" placeholder="Password">
-<button onclick="login()">Login</button>
-</div>
-
-<div id="app" style="display:none">
-
-<h2>Dashboard</h2>
-<canvas id="usageChart" height="100"></canvas>
-
-<h2>Inventory</h2>
-
-<select id="sortSelect" onchange="renderInventory()">
-<option value="full">Most Full Spools</option>
-<option value="empty">Most Empty Spools</option>
-<option value="stock_high">Most In Stock</option>
-<option value="stock_low">Least In Stock</option>
-</select>
-
-<button onclick="clearInventory()">Clear Inventory</button>
-
-<div id="inventory"></div>
-
-<h2>Usage Log</h2>
-<button onclick="clearUsage()">Clear Usage</button>
-<div id="usage"></div>
-
-<h2>Excel Import</h2>
-<input type="file" id="excelFile">
-
-<h2>3MF Import</h2>
-<input type="file" id="threeMF">
-
-</div>
-
-<script>
-
-let inventory=[]
-let usage=[]
-
-function login(){
-const pass=document.getElementById("password").value
-if(pass.length>0){
-document.getElementById("login").style.display="none"
-document.getElementById("app").style.display="block"
-}
-}
-
-document.getElementById("excelFile").addEventListener("change",importExcel)
-document.getElementById("threeMF").addEventListener("change",import3mf)
-
-function importExcel(e){
-
-const reader=new FileReader()
-
-reader.onload=function(evt){
-
-const data=new Uint8Array(evt.target.result)
-const wb=XLSX.read(data,{type:'array'})
-const sheet=wb.Sheets[wb.SheetNames[0]]
-const rows=XLSX.utils.sheet_to_json(sheet)
-
-rows.forEach(r=>{
-
-const filamentLeft=r["Filament Left"]
-const totalPurchased=r["Total Purchased"] ?? 1
-
-let spools=Math.ceil(filamentLeft/1000)
-
-let finished=totalPurchased-spools
-if(finished<0) finished=0
-
-inventory.push({
-brand:r.Brand,
-material:r.Material,
-colour:r.Colour,
-filament:filamentLeft,
-spools:spools,
-finished:finished
-})
-
-})
-
-renderInventory()
-
-}
-
-reader.readAsArrayBuffer(e.target.files[0])
-}
-
-function renderInventory(){
-
-const box=document.getElementById("inventory")
-box.innerHTML=""
-
-let sorted=[...inventory]
-
-const mode=document.getElementById("sortSelect").value
-
-if(mode=="full") sorted.sort((a,b)=>b.filament%1000 - a.filament%1000)
-if(mode=="empty") sorted.sort((a,b)=>a.filament%1000 - b.filament%1000)
-if(mode=="stock_high") sorted.sort((a,b)=>b.filament-a.filament)
-if(mode=="stock_low") sorted.sort((a,b)=>a.filament-b.filament)
-
-sorted.forEach(s=>{
-
-const el=document.createElement("div")
-el.className="card"
-
-el.innerHTML=`
-<b>${s.brand}</b> ${s.material} ${s.colour}<br>
-Filament Left: ${s.filament}g<br>
-Spools In Stock: ${s.spools}<br>
-Finished Spools: ${s.finished}
-`
-
-box.appendChild(el)
-
-})
-
-}
-
-function clearInventory(){
-if(confirm("Clear inventory database?")){
-inventory=[]
-renderInventory()
-}
-}
-
-function clearUsage(){
-if(confirm("Clear usage log?")){
-usage=[]
-document.getElementById("usage").innerHTML=""
-}
-}
-
-async function import3mf(e){
-
-const file=e.target.files[0]
-const zip=await JSZip.loadAsync(file)
-
-let grams=null
-
-const tryFiles=[
-"Metadata/model_settings.config",
-"Metadata/slice_info.config"
-]
-
-for(const f of tryFiles){
-
-const obj=zip.file(f)
-
-if(obj){
-
-const txt=await obj.async("text")
-
-let m=txt.match(/filament_used\s*=\s*([0-9.]+)/)
-if(!m) m=txt.match(/estimated_weight\s*=\s*([0-9.]+)/)
-
-if(m){
-grams=parseFloat(m[1])
-break
-}
-
-}
-
-}
-
-if(!grams){
-alert("No filament weight found in 3MF")
-return
-}
-
-usage.push({grams:grams,date:new Date()})
-
-renderUsage()
-renderChart()
-
-}
-
-function renderUsage(){
-
-const box=document.getElementById("usage")
-box.innerHTML=""
-
-usage.forEach(u=>{
-
-const el=document.createElement("div")
-el.className="card"
-
-el.innerText=`${u.grams}g used on ${new Date(u.date).toLocaleDateString()}`
-
-box.appendChild(el)
-
-})
-
-}
-
-function renderChart(){
-
-const monthly={}
-
-usage.forEach(u=>{
-
-const m=new Date(u.date).toISOString().slice(0,7)
-
-monthly[m]=(monthly[m]??0)+u.grams
-
-})
-
-const labels=Object.keys(monthly)
-const data=Object.values(monthly)
-
-new Chart(document.getElementById("usageChart"),{
-type:'bar',
-data:{
-labels:labels,
-datasets:[{label:"Filament Used (g)",data:data}]
-}
-})
-
-}
-
-</script>
-
+<body class="min-h-screen pb-20">
+
+    <nav class="glass sticky top-0 z-40 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div
+                    class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-width="2" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black tracking-tighter italic uppercase leading-none">FilamentFlow</h1>
+                    <span class="text-[10px] font-mono text-blue-400 font-bold tracking-[0.2em] uppercase">Enterprise
+                        Inventory</span>
+                </div>
+            </div>
+
+            <div class="hidden md:flex items-center gap-8">
+                <button onclick="showTab('dashboard')" id="btn-dashboard"
+                    class="text-xs font-black uppercase tracking-widest active-tab py-2 transition-colors hover:text-blue-400">Dashboard</button>
+                <button onclick="showTab('inventory')" id="btn-inventory"
+                    class="text-xs font-black uppercase tracking-widest text-slate-500 py-2 transition-colors hover:text-blue-400">Inventory</button>
+                <button onclick="showTab('logs')" id="btn-logs"
+                    class="text-xs font-black uppercase tracking-widest text-slate-500 py-2 transition-colors hover:text-blue-400">Usage
+                    Logs</button>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <label
+                    class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl cursor-pointer transition-all border border-slate-700 text-[11px] font-bold uppercase tracking-tight">
+                    Excel Import <input type="file" id="excel-upload" class="hidden" accept=".xlsx">
+                </label>
+                <button onclick="openAddModal()"
+                    class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl font-bold text-[11px] uppercase tracking-tight shadow-lg shadow-blue-900/30 transition-all">+
+                    New Spool</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-10">
+
+        <section id="tab-dashboard" class="space-y-8 animate-slide">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass p-6 rounded-3xl border border-slate-800 card-shadow">
+                    <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 italic">Active
+                        Inventory</p>
+                    <div class="flex items-baseline gap-2">
+                        <h2 id="stat-count" class="text-4xl font-mono font-bold">0</h2>
+                        <span class="text-xs text-slate-600 font-bold uppercase">Spools</span>
+                    </div>
+                </div>
+                <div class="glass p-6 rounded-3xl border border-slate-800 card-shadow">
+                    <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 italic">On-Hand Mass
+                    </p>
+                    <div class="flex items-baseline gap-2">
+                        <h2 id="stat-weight" class="text-4xl font-mono font-bold text-emerald-500">0.0</h2>
+                        <span class="text-xs text-slate-600 font-bold uppercase italic">kg</span>
+                    </div>
+                </div>
+                <div class="glass p-6 rounded-3xl border border-slate-800 card-shadow">
+                    <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 italic">Low Stock</p>
+                    <div class="flex items-baseline gap-2">
+                        <h2 id="stat-low" class="text-4xl font-mono font-bold text-orange-500">0</h2>
+                        <span class="text-xs text-slate-600 font-bold uppercase">Alerts</span>
+                    </div>
+                </div>
+                <div class="glass p-6 rounded-3xl border border-slate-800 card-shadow">
+                    <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 italic">Material
+                        Count</p>
+                    <div class="flex items-baseline gap-2">
+                        <h2 id="stat-types" class="text-4xl font-mono font-bold text-purple-400">0</h2>
+                        <span class="text-xs text-slate-600 font-bold uppercase">Types</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 glass p-8 rounded-3xl border border-slate-800 h-[400px]">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-sm font-black uppercase tracking-[0.2em] text-slate-400 italic">//
+                            Consumption_Graph.exe</h3>
+                    </div>
+                    <div class="h-[300px] w-full">
+                        <canvas id="usageChart"></canvas>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div id="drop-zone"
+                        class="glass p-8 rounded-3xl border-2 border-dashed border-slate-700 hover:border-blue-500 transition-all flex flex-col items-center justify-center text-center group cursor-pointer relative">
+                        <input type="file" id="threemf-upload" class="absolute inset-0 opacity-0 cursor-pointer"
+                            accept=".3mf">
+                        <div
+                            class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <h4 class="text-sm font-black uppercase italic tracking-tighter">Log Bambu 3MF</h4>
+                        <p class="text-[10px] text-slate-500 font-bold mt-2 leading-relaxed uppercase">Drop Sliced
+                            Project Here <br> To Deduct Grams Automatically</p>
+                    </div>
+                    <div class="glass p-6 rounded-3xl border border-slate-800">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 italic">// Tools
+                        </h3>
+                        <div class="grid grid-cols-1 gap-2">
+                            <button onclick="clearDatabase()"
+                                class="w-full text-left px-4 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold transition-all border border-red-500/20 uppercase tracking-tighter">Wipe
+                                Inventory</button>
+                            <button onclick="clearUsageLogs()"
+                                class="w-full text-left px-4 py-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-xs font-bold transition-all border border-orange-500/20 uppercase tracking-tighter">Clear
+                                Usage History</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-inventory" class="hidden animate-slide">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div class="relative w-full md:w-96">
+                    <input type="text" id="inventory-search" oninput="filterInventory()"
+                        placeholder="SEARCH BRAND, COLOR, OR CODE..."
+                        class="w-full pl-12 pr-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest">
+                    <svg class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="3" />
+                    </svg>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <select id="sort-select" onchange="filterInventory()"
+                        class="flex-1 md:flex-none px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none">
+                        <option value="id-desc">NEWEST FIRST</option>
+                        <option value="weight-desc">MOST REMAINING</option>
+                        <option value="weight-asc">LEAST REMAINING</option>
+                        <option value="brand-asc">BRAND (A-Z)</option>
+                    </select>
+                </div>
+            </div>
+            <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </section>
+
+        <section id="tab-logs" class="hidden animate-slide">
+            <div class="glass rounded-3xl border border-slate-800 overflow-hidden card-shadow">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/80 border-b border-slate-800">
+                            <th class="p-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Timestamp
+                            </th>
+                            <th class="p-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Source
+                                Project</th>
+                            <th class="p-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Spool / Code
+                            </th>
+                            <th class="p-6 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">
+                                Consumption</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usage-list" class="divide-y divide-slate-800/50 font-mono text-xs"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div id="spool-modal" class="fixed inset-0 z-50 flex items-center justify-center p-6 hidden">
+        <div class="absolute inset-0 bg-bg/80 backdrop-blur-xl" onclick="closeModal()"></div>
+        <div
+            class="glass w-full max-w-xl rounded-[40px] border border-slate-700 p-10 card-shadow relative animate-slide overflow-y-auto max-h-[90vh]">
+            <h2 id="modal-title" class="text-3xl font-black italic uppercase tracking-tighter mb-8">Add_Spool.cfg</h2>
+            <form id="spool-form" onsubmit="saveSpool(event)" class="space-y-6">
+                <input type="hidden" id="spool-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label
+                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 italic">Brand</label>
+                        <input type="text" id="f-brand" required
+                            class="w-full px-5 py-3 rounded-2xl text-xs font-bold uppercase">
+                    </div>
+                    <div class="space-y-1">
+                        <label
+                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 italic">Material</label>
+                        <input type="text" id="f-material" placeholder="PLA / PETG" required
+                            class="w-full px-5 py-3 rounded-2xl text-xs font-bold uppercase">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 italic">Color
+                            Name</label>
+                        <input type="text" id="f-color-name" required
+                            class="w-full px-5 py-3 rounded-2xl text-xs font-bold uppercase">
+                    </div>
+                    <div class="space-y-1">
+                        <label
+                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 italic">Style</label>
+                        <input type="text" id="f-style" placeholder="MATTE / BASIC"
+                            class="w-full px-5 py-3 rounded-2xl text-xs font-bold uppercase">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label
+                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 italic">Current
+                            Weight (g)</label>
+                        <input type="number" id="f-weight" required
+                            class="w-full px-5 py-3 rounded-2xl text-xs font-bold uppercase font-mono">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 italic">Bambu
+                            Code</label>
+                        <input type="text" id="f-code"
+                            class="w-full px-5 py-3 rounded-2xl text-xs font-bold uppercase font-mono">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 italic">Web
+                        Address</label>
+                    <input type="url" id="f-web" class="w-full px-5 py-3 rounded-2xl text-xs font-bold">
+                </div>
+                <div class="flex gap-3 pt-6">
+                    <button type="button" onclick="closeModal()"
+                        class="flex-1 py-4 rounded-2xl bg-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-700 transition-all">Cancel</button>
+                    <button type="submit"
+                        class="flex-1 py-4 rounded-2xl bg-blue-600 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/30">Commit
+                        Spool</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast"
+        class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl glass text-[11px] font-black uppercase tracking-widest border border-blue-500/30 text-blue-400 opacity-0 transition-opacity pointer-events-none">
+    </div>
+
+    <script>
+        let allFilaments = [];
+        let usageChart = null;
+
+        // --- NAVIGATION ---
+        function showTab(name) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab', 'text-slate-500'));
+
+            document.getElementById('tab-' + name).classList.remove('hidden');
+            document.getElementById('btn-' + name).classList.add('active-tab');
+
+            if (name === 'dashboard') updateDashboard();
+            if (name === 'inventory') fetchFilaments();
+            if (name === 'logs') fetchUsage();
+        }
+
+        // --- CORE DATA FETCH ---
+        async function fetchFilaments() {
+            try {
+                const res = await fetch('/api/filaments');
+                allFilaments = await res.json();
+                updateStats();
+                filterInventory();
+            } catch (e) { notify("Error loading database", "red"); }
+        }
+
+        async function fetchUsage() {
+            const res = await fetch('/api/usage');
+            const logs = await res.json();
+            const list = document.getElementById('usage-list');
+            list.innerHTML = logs.map(l => `
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="p-6 text-slate-500 italic uppercase tracking-tighter">${new Date(l.created_at).toLocaleString()}</td>
+                    <td class="p-6 font-bold text-slate-300 uppercase">${l.project_name}</td>
+                    <td class="p-6">
+                        <span class="text-blue-400 font-bold">${l.filament_label || 'Unknown'}</span>
+                    </td>
+                    <td class="p-6 text-right font-black text-emerald-400 tracking-tighter">-${l.weight_used}g</td>
+                </tr>
+            `).join('');
+        }
+
+        // --- INVENTORY LOGIC ---
+        function filterInventory() {
+            const query = document.getElementById('inventory-search').value.toLowerCase();
+            const sort = document.getElementById('sort-select').value;
+
+            let filtered = allFilaments.filter(f =>
+                f.brand.toLowerCase().includes(query) ||
+                f.color_name.toLowerCase().includes(query) ||
+                (f.code && f.code.includes(query))
+            );
+
+            // Sorting
+            filtered.sort((a, b) => {
+                if (sort === 'weight-desc') return b.weight_current - a.weight_current;
+                if (sort === 'weight-asc') return a.weight_current - b.weight_current;
+                if (sort === 'brand-asc') return a.brand.localeCompare(b.brand);
+                return b.id - a.id;
+            });
+
+            renderGrid(filtered);
+        }
+
+        function renderGrid(data) {
+            const grid = document.getElementById('filament-grid');
+            grid.innerHTML = data.map(f => `
+                <div class="glass p-6 rounded-[32px] border border-slate-800 card-shadow group hover:border-blue-500/50 transition-all animate-slide relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <span class="text-[9px] font-black px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 uppercase tracking-tighter">${f.material}</span>
+                            <h3 class="text-lg font-bold text-white mt-1 uppercase tracking-tighter">${f.brand}</h3>
+                            <p class="text-slate-500 text-[10px] font-black uppercase italic">${f.color_name} ${f.style ? '• ' + f.style : ''}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[9px] font-mono text-slate-700 font-bold uppercase">ID_${f.id}</span>
+                            ${f.code ? `<div class="text-[8px] font-mono text-slate-500 uppercase mt-1">#${f.code}</div>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="flex justify-between items-end mb-2">
+                            <p class="text-[9px] text-slate-600 font-black uppercase italic tracking-widest">Available</p>
+                            <p class="text-2xl font-mono font-bold ${f.weight_current < 150 ? 'text-orange-500' : 'text-white'}">${Math.round(f.weight_current)}<span class="text-[10px] text-slate-600 ml-1">g</span></p>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-600 shadow-[0_0_10px_#2563eb]" style="width: ${Math.min((f.weight_current / 1000) * 100, 100)}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="openUsagePrompt(${f.id}, '${f.brand} ${f.color_name}')" class="flex-1 bg-slate-800 hover:bg-blue-600 text-[10px] font-black uppercase py-2.5 rounded-xl transition-all tracking-widest">- Log Use</button>
+                        <button onclick="editSpool(${f.id})" class="px-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-width="2.5"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- DASHBOARD CHARTS ---
+        async function updateDashboard() {
+            updateStats();
+            const res = await fetch('/api/usage');
+            const logs = await res.json();
+
+            const grouped = logs.reduce((acc, curr) => {
+                const day = new Date(curr.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                acc[day] = (acc[day] || 0) + curr.weight_used;
+                return acc;
+            }, {});
+
+            const ctx = document.getElementById('usageChart').getContext('2d');
+            if (usageChart) usageChart.destroy();
+
+            usageChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Object.keys(grouped).reverse(),
+                    datasets: [{
+                        label: 'Grams',
+                        data: Object.values(grouped).reverse(),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#3b82f6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { font: { family: 'Space Mono', size: 10 }, color: '#475569' } },
+                        x: { grid: { display: false }, ticks: { font: { family: 'Space Mono', size: 10 }, color: '#475569' } }
+                    }
+                }
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('stat-count').innerText = allFilaments.length;
+            const totalGrams = allFilaments.reduce((acc, f) => acc + (parseFloat(f.weight_current) || 0), 0);
+            document.getElementById('stat-weight').innerText = (totalGrams / 1000).toFixed(1);
+            document.getElementById('stat-low').innerText = allFilaments.filter(f => f.weight_current < 150).length;
+            document.getElementById('stat-types').innerText = [...new Set(allFilaments.map(f => f.material))].length;
+        }
+
+        // --- MODAL & FORM LOGIC ---
+        function openAddModal() {
+            document.getElementById('modal-title').innerText = "Add_New_Spool.cfg";
+            document.getElementById('spool-form').reset();
+            document.getElementById('spool-id').value = "";
+            document.getElementById('spool-modal').classList.remove('hidden');
+        }
+
+        function editSpool(id) {
+            const f = allFilaments.find(x => x.id === id);
+            if (!f) return;
+            document.getElementById('modal-title').innerText = `Edit_Spool_${id}.cfg`;
+            document.getElementById('spool-id').value = f.id;
+            document.getElementById('f-brand').value = f.brand;
+            document.getElementById('f-material').value = f.material;
+            document.getElementById('f-color-name').value = f.color_name;
+            document.getElementById('f-style').value = f.style || "";
+            document.getElementById('f-weight').value = f.weight_current;
+            document.getElementById('f-code').value = f.code || "";
+            document.getElementById('f-web').value = f.web_address || "";
+            document.getElementById('spool-modal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('spool-modal').classList.add('hidden'); }
+
+        async function saveSpool(e) {
+            e.preventDefault();
+            const id = document.getElementById('spool-id').value;
+            const data = {
+                brand: document.getElementById('f-brand').value,
+                material: document.getElementById('f-material').value,
+                color_name: document.getElementById('f-color-name').value,
+                style: document.getElementById('f-style').value,
+                weight_current: parseFloat(document.getElementById('f-weight').value),
+                code: document.getElementById('f-code').value,
+                web_address: document.getElementById('f-web').value
+            };
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/filaments/${id}` : '/api/filaments';
+
+            await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(id ? data : { action: 'add_single', ...data })
+            });
+
+            closeModal();
+            fetchFilaments();
+            notify(id ? "Spool Updated" : "Spool Added");
+        }
+
+        // --- 3MF & LOGGING ---
+        document.getElementById('threemf-upload').onchange = async (e) => {
+            const file = e.target.files[0];
+            const zip = await JSZip.loadAsync(file);
+            let weight = 0;
+
+            const tryFiles = ["Metadata/model_settings.config", "Metadata/slice_info.config"];
+            for (const f of tryFiles) {
+                const obj = zip.file(f);
+                if (obj) {
+                    const txt = await obj.async("text");
+                    let m = txt.match(/filament_used\s*=\s*([0-9.]+)/) || txt.match(/estimated_weight\s*=\s*([0-9.]+)/);
+                    if (m) { weight = parseFloat(m[1]); break; }
+                }
+            }
+
+            if (weight > 0) {
+                const spoolId = prompt(`Scan complete: ${weight}g detected.\nEnter Spool ID to subtract from:`);
+                if (spoolId) {
+                    await logUsage(spoolId, weight, file.name);
+                }
+            } else { notify("Metadata missing in 3MF", "red"); }
+        };
+
+        async function openUsagePrompt(id, label) {
+            const weight = prompt(`How many grams used from ${label}?`);
+            if (weight) await logUsage(id, parseFloat(weight), 'Manual Deduction');
+        }
+
+        async function logUsage(id, grams, project) {
+            await fetch('/api/usage', {
+                method: 'POST',
+                body: JSON.stringify({ filament_id: id, grams, project })
+            });
+            notify(`Logged -${grams}g`);
+            fetchFilaments();
+        }
+
+        // --- UTILS ---
+        function notify(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.opacity = "1";
+            setTimeout(() => t.style.opacity = "0", 3000);
+        }
+
+        // Init
+        fetchFilaments();
+        updateDashboard();
+    </script>
 </body>
+
 </html>
