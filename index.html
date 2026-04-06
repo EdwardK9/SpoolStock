@@ -784,23 +784,6 @@
                     </table>
                 </div>
             </section>
-            <section>
-                // Add a "Delete All" button in the inventory tab
-<div class="flex justify-between items-center flex-wrap gap-3">
-    <!-- Existing filters and buttons -->
-    <button onclick="openAddModal()" class="btn-primary text-xs">
-        <!-- Plus icon -->
-    </button>
-    <button onclick="exportToExcel()" class="btn-ghost text-xs">
-        <!-- Export icon -->
-    </button>
-    <!-- New delete button -->
-    <button onclick="confirmDeleteAll()" class="btn-danger text-xs">
-        🗑️ Delete All
-    </button>
-</div>
-</section>
-
 
         </main>
     </div>
@@ -1628,28 +1611,6 @@
         // INIT
         // ============================================================
         loadAll();
-
-        // Add this function to your JavaScript
-async function confirmDeleteAll() {
-    if (!confirm("Are you sure you want to delete ALL filament data? This cannot be undone.")) 
-        return;
-    
-    try {
-        await apiFetch('/api/filaments', { 
-            method: 'POST', 
-            body: JSON.stringify({ action: 'delete_all' }) 
-        });
-        await apiFetch('/api/usage', { 
-            method: 'POST', 
-            body: JSON.stringify({ action: 'delete_all' }) 
-        });
-        loadAll();
-        showToast('All filament data and usage logs deleted', 'success');
-    } catch (err) {
-        showToast('Error deleting data: ' + err.message, 'error');
-    }
-}
-
     </script>
 </body>
 
