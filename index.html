@@ -1566,31 +1566,63 @@
                     }
                 }
 
-                // ── STRATEGY 2: slice_info.config weight attributes ──
+                // ── STRATEGY 2: slice_info.config — read per-filament used_g and total weight ──
                 if (!filamentGrams) {
                     const sliceInfoPath = allFiles.find(n => n.toLowerCase().includes('slice_info'));
                     if (sliceInfoPath) {
                         const txt = await zip.files[sliceInfoPath].async('string');
-                        const weightMatches = [...txt.matchAll(/weight\s*=\s*"([0-9.]+)"/gi)];
-                        if (weightMatches.length) {
-                            filamentGrams = weightMatches.reduce((sum, m) => sum + parseFloat(m[1]), 0);
-                            console.log('[3MF] slice_info weights:', weightMatches.map(m=>m[1]), '→', filamentGrams);
+
+                        // Per-filament entries: used_g="12.34" — sum all of them
+                        const usedGMatches = [...txt.matchAll(/used_g\s*=\s*"([0-9.]+)"/gi)];
+                        if (usedGMatches.length) {
+                            const slots = usedGMatches.map(m => parseFloat(m[1])).filter(v => v > 0);
+                            filamentGrams = slots.reduce((a, b) => a + b, 0);
+                            console.log('[3MF] slice_info used_g per slot:', slots, '→', filamentGrams);
+
+                            // Also grab colours from slice_info if we don't have them yet
+                            if (!perSlot.length) {
+                                const colorMatches = [...txt.matchAll(/color\s*=\s*"([^"]+)"/gi)];
+                                const typeMatches  = [...txt.matchAll(/type\s*=\s*"([^"]+)"/gi)];
+                                perSlot = slots.map((g, i) => ({
+                                    grams: g,
+                                    colour: colorMatches[i] ? colorMatches[i][1] : null,
+                                    material: typeMatches[i] ? typeMatches[i][1] : 'PLA'
+                                }));
+                            }
+                        } else {
+                            // Fallback: single weight="98.02" on the plate metadata
+                            const wm = txt.match(/key\s*=\s*"weight"\s+value\s*=\s*"([0-9.]+)"/i)
+                                    || txt.match(/\bweight\s*=\s*"([0-9.]+)"/i);
+                            if (wm) {
+                                filamentGrams = parseFloat(wm[1]);
+                                console.log('[3MF] slice_info plate weight:', filamentGrams);
+                            }
                         }
                     }
                 }
 
-                // ── STRATEGY 3: Plain .gcode only (NOT bgcode) ──
+                // ── STRATEGY 3: Plain .gcode (NOT bgcode) — Bambu header format ──
                 if (!filamentGrams) {
                     for (const name of allFiles) {
                         if (zip.files[name].dir || name.toLowerCase().endsWith('.bgcode')) continue;
                         if (!name.toLowerCase().includes('gcode')) continue;
                         const content = await zip.files[name].async('string');
-                        const m = content.match(/; filament used \[g\]\s*=\s*([\d.,\s]+)/i)
-                                || content.match(/filament_used_g\s*=\s*([\d.]+)/i);
-                        if (m) {
-                            const parts = m[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
+
+                        // Bambu format: "; total filament weight [g] : 98.02"
+                        const bambu = content.match(/;\s*total filament weight \[g\]\s*[=:]\s*([\d.]+)/i);
+                        if (bambu) {
+                            filamentGrams = parseFloat(bambu[1]);
+                            console.log('[3MF] gcode total weight:', filamentGrams);
+                            break;
+                        }
+
+                        // Prusa/generic: "; filament used [g] = 12.34" (possibly comma-separated)
+                        const generic = content.match(/;\s*filament used \[g\]\s*[=:]\s*([\d.,\s]+)/i)
+                                     || content.match(/filament_used_g\s*=\s*([\d.]+)/i);
+                        if (generic) {
+                            const parts = generic[1].split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v) && v > 0);
                             filamentGrams = parts.reduce((a, b) => a + b, 0);
-                            console.log('[3MF] gcode match:', m[1], '→', filamentGrams);
+                            console.log('[3MF] gcode filament used:', generic[1], '→', filamentGrams);
                             if (filamentGrams > 0) break;
                         }
                     }
