@@ -76,31 +76,7 @@
             font-family: 'Space Mono', monospace;
         }
 
-        .sidebar {
-            position: fixed;
-            top: 0;
-            right: -300px;
-            /* Initial position off-screen */
-            width: 300px;
-            height: 100%;
-            background-color: var(--bg-secondary);
-            transition: right 0.3s ease-in-out;
-            padding: 20px;
-            box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1);
-            display: none;
-        }
 
-        .sidebar.open {
-            right: 0;
-            /* Show the sidebar */
-        }
-
-        .close-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            cursor: pointer;
-        }
 
         /* Grid bg (dark only) */
         body::before {
@@ -654,12 +630,6 @@
             <button onclick="showTab('usage')" id="btn-usage"
                 class="nav-tab pb-4 text-sm font-bold mono uppercase tracking-wider">Usage Log</button>
         </nav>
-        <!-- SIDEBAR -->
-        <div class="sidebar" id="sidebar">
-            <span class="close-btn" onclick="toggleSidebar()">×</span>
-            <h2>Details</h2>
-            <ul id="detail-list"></ul>
-        </div>
         <!-- MAIN -->
         <main>
 
