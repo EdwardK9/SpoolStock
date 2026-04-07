@@ -60,3 +60,44 @@ function json(data, status = 200) {
         }
     });
 }
+
+/**
+ * DELETE /api/usage/:id
+ * Body: { restore: true }  → adds grams back to the spool before deleting the log entry
+ * Body: { restore: false } → deletes log entry only, filament weight unchanged
+ */
+export async function onRequestDelete(context) {
+    const url = new URL(context.request.url);
+    const id = url.pathname.split('/').pop();
+    if (!id || isNaN(parseInt(id))) return json({ error: 'Invalid id' }, 400);
+
+    const db = context.env.DB;
+
+    // Fetch the log entry so we know which spool and how many grams
+    const entry = await db.prepare(
+        "SELECT filament_id, weight_used FROM usage_logs WHERE id = ?"
+    ).bind(parseInt(id)).first();
+
+    if (!entry) return json({ error: 'Log entry not found' }, 404);
+
+    let restore = false;
+    try {
+        const body = await context.request.json();
+        restore = !!body.restore;
+    } catch { /* no body is fine, default restore = false */ }
+
+    const ops = [
+        db.prepare("DELETE FROM usage_logs WHERE id = ?").bind(parseInt(id))
+    ];
+
+    if (restore && entry.filament_id) {
+        ops.push(
+            db.prepare(
+                "UPDATE filaments SET weight_current = weight_current + ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?"
+            ).bind(entry.weight_used, entry.filament_id)
+        );
+    }
+
+    await db.batch(ops);
+    return json({ ok: true, restored: restore });
+}

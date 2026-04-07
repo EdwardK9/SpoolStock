@@ -521,6 +521,51 @@
             margin-bottom: 20px;
         }
 
+        /* CHECKBOXES */
+        .row-check {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .card-check-wrap {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .select-mode .card-check-wrap,
+        .spool-card:hover .card-check-wrap {
+            opacity: 1;
+        }
+
+        .spool-card.card-selected {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 2px rgba(79,142,247,0.25), var(--card-shadow);
+        }
+
+        /* SELECTION TOOLBAR */
+        .sel-toolbar {
+            position: sticky;
+            bottom: 20px;
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            background: var(--surface2);
+            border: 1px solid var(--accent);
+            border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            margin-top: 20px;
+            animation: fadeUp 0.2s ease;
+        }
+
         /* SCROLLBAR */
         ::-webkit-scrollbar {
             width: 6px;
@@ -720,13 +765,20 @@
                     <select id="filter-brand" onchange="filterCards()" style="width:auto;min-width:130px">
                         <option value="">All Brands</option>
                     </select>
-                    <button onclick="toggleInStock()" id="btn-instock" class="btn-ghost text-xs py-2 px-3">In Stock
-                        Only</button>
+                    <button onclick="toggleInStock()" id="btn-instock" class="btn-ghost text-xs py-2 px-3">In Stock Only</button>
                     <span id="filter-count" class="text-xs mono" style="color:var(--muted)"></span>
+                    <button onclick="invSelectAll()" class="btn-ghost text-xs py-2 px-3">Select All</button>
+                    <button onclick="invSelectNone()" class="btn-ghost text-xs py-2 px-3">Select None</button>
                 </div>
                 <div id="filament-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
-                <p id="no-results" class="text-center py-16 hidden" style="color:var(--muted)">No filaments match your
-                    filters.</p>
+                <p id="no-results" class="text-center py-16 hidden" style="color:var(--muted)">No filaments match your filters.</p>
+                <!-- Inventory selection toolbar -->
+                <div id="inv-toolbar" class="sel-toolbar hidden">
+                    <span id="inv-sel-count" class="text-sm font-bold mono" style="color:var(--accent)">0 selected</span>
+                    <div style="flex:1"></div>
+                    <button onclick="invDeleteSelected()" class="btn-danger">🗑 Delete Selected</button>
+                    <button onclick="invSelectNone()" class="btn-ghost text-xs py-1.5 px-3">✕ Clear</button>
+                </div>
             </section>
 
             <!-- ======= REORDER ======= -->
@@ -734,18 +786,21 @@
                 <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
                     <div>
                         <h2 class="text-lg font-black" style="color:var(--text)">Reorder List</h2>
-                        <p class="text-sm mt-1" style="color:var(--text2)">Spools with less than 150g remaining — time
-                            to restock.</p>
+                        <p class="text-sm mt-1" style="color:var(--text2)">Spools with less than 150g remaining — time to restock.</p>
                     </div>
-                    <button onclick="copyReorderList()" class="btn-ghost text-sm">
-                        📋 Copy Shopping List
-                    </button>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="reorderSelectAll()" class="btn-ghost text-sm">Select All</button>
+                        <button onclick="reorderSelectNone()" class="btn-ghost text-sm">Select None</button>
+                        <button onclick="copyReorderList()" class="btn-ghost text-sm">📋 Copy Shopping List</button>
+                    </div>
                 </div>
-                <div id="reorder-list"
-                    style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                <div id="reorder-list" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th style="width:36px">
+                                    <input type="checkbox" class="row-check" id="reorder-check-all" onchange="reorderToggleAll(this.checked)" title="Select all">
+                                </th>
                                 <th>Spool</th>
                                 <th>Material</th>
                                 <th>Left</th>
@@ -754,12 +809,16 @@
                             </tr>
                         </thead>
                         <tbody id="reorder-body">
-                            <tr>
-                                <td colspan="5" class="text-center py-12" style="color:var(--muted)">🎉 All spools well
-                                    stocked!</td>
-                            </tr>
+                            <tr><td colspan="6" class="text-center py-12" style="color:var(--muted)">🎉 All spools well stocked!</td></tr>
                         </tbody>
                     </table>
+                </div>
+                <!-- Reorder selection toolbar -->
+                <div id="reorder-toolbar" class="sel-toolbar hidden">
+                    <span id="reorder-sel-count" class="text-sm font-bold mono" style="color:var(--accent)">0 selected</span>
+                    <div style="flex:1"></div>
+                    <button onclick="reorderDeleteSelected()" class="btn-danger">🗑 Delete Selected Spools</button>
+                    <button onclick="reorderSelectNone()" class="btn-ghost text-xs py-1.5 px-3">✕ Clear</button>
                 </div>
             </section>
 
@@ -767,13 +826,19 @@
             <section id="tab-usage" class="hidden">
                 <div class="section-header">
                     <h2 class="text-lg font-black" style="color:var(--text)">Usage Log</h2>
-                    <button onclick="exportToExcel('usage')" class="btn-ghost text-sm">↓ Export Log</button>
+                    <div class="flex gap-2">
+                        <button onclick="usageSelectAll()" class="btn-ghost text-sm">Select All</button>
+                        <button onclick="usageSelectNone()" class="btn-ghost text-sm">Select None</button>
+                        <button onclick="exportToExcel('usage')" class="btn-ghost text-sm">↓ Export Log</button>
+                    </div>
                 </div>
-                <div
-                    style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden">
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th style="width:36px">
+                                    <input type="checkbox" class="row-check" id="usage-check-all" onchange="usageToggleAll(this.checked)" title="Select all">
+                                </th>
                                 <th>Date</th>
                                 <th>Project</th>
                                 <th>Filament</th>
@@ -781,12 +846,17 @@
                             </tr>
                         </thead>
                         <tbody id="usage-list">
-                            <tr>
-                                <td colspan="4" class="text-center py-12" style="color:var(--muted)">No usage records
-                                    yet.</td>
-                            </tr>
+                            <tr><td colspan="5" class="text-center py-12" style="color:var(--muted)">No usage records yet.</td></tr>
                         </tbody>
                     </table>
+                </div>
+                <!-- Usage selection toolbar -->
+                <div id="usage-toolbar" class="sel-toolbar hidden">
+                    <span id="usage-sel-count" class="text-sm font-bold mono" style="color:var(--accent)">0 selected</span>
+                    <div style="flex:1"></div>
+                    <button onclick="usageDeleteSelected(true)" class="btn-primary text-xs" style="background:var(--green)">↩ Delete &amp; Restore Filament</button>
+                    <button onclick="usageDeleteSelected(false)" class="btn-danger">🗑 Delete Log Only</button>
+                    <button onclick="usageSelectNone()" class="btn-ghost text-xs py-1.5 px-3">✕ Clear</button>
                 </div>
             </section>
 
@@ -1277,8 +1347,11 @@
                 data-weight-current="${w}"
                 data-total-purchased="${total}"
                 data-hex="${hex}"
-                onclick="openSidebar(this)"
+                onclick="onCardClick(event, this)"
             >
+            <label class="card-check-wrap" onclick="event.stopPropagation()">
+                <input type="checkbox" class="row-check card-check" data-id="${f.id}" onchange="onCardCheckChange(this)">
+            </label>
         <div class="flex justify-between items-start mb-3">
             <div style="flex:1;min-width:0">
                 <span class="badge mb-2" style="background:${ms.bg};color:${ms.text}">${f.material || '?'}</span>
@@ -1349,7 +1422,10 @@
                 const isEmpty = w === 0;
                 const buyLink = getBuyLink(f);
                 const store = f.brand && f.brand.toLowerCase().includes('bambu') ? 'Bambu Store' : 'Amazon UK';
-                return `<tr>
+                return `<tr data-id="${f.id}">
+            <td style="width:36px">
+                <input type="checkbox" class="row-check reorder-check" data-id="${f.id}" onchange="reorderCheckChange()">
+            </td>
             <td>
                 <div class="flex items-center gap-3">
                     <span class="color-chip" style="background:${f.color_hex || getColourHex(f.color_name)};width:20px;height:20px;border-radius:6px;flex-shrink:0"></span>
@@ -1390,7 +1466,10 @@
                     body.innerHTML = '<tr><td colspan="4" class="text-center py-12" style="color:var(--muted)">No usage records yet.</td></tr>';
                     return;
                 }
-                body.innerHTML = usageLog.map(u => `<tr>
+                body.innerHTML = usageLog.map(u => `<tr data-id="${u.id}" data-filament-id="${u.filament_id}" data-weight="${u.weight_used}">
+            <td style="width:36px">
+                <input type="checkbox" class="row-check usage-check" data-id="${u.id}" data-filament-id="${u.filament_id}" data-weight="${u.weight_used}" onchange="usageCheckChange()">
+            </td>
             <td class="mono text-xs" style="color:var(--text2)">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
             <td class="font-medium" style="color:var(--text)">${u.project_name || '—'}</td>
             <td style="color:var(--text2)">${u.filament_label || `Spool #${u.filament_id}`}</td>
@@ -1882,6 +1961,165 @@
             t.className = 'show ' + type;
             clearTimeout(toastTimer);
             toastTimer = setTimeout(() => { t.className = ''; }, 3800);
+        }
+
+        // ============================================================
+        // INVENTORY SELECTION
+        // ============================================================
+        function onCardClick(e, cardEl) {
+            // If a checkbox is checked anywhere in the grid, treat clicks as selection toggles
+            const anyChecked = document.querySelector('.card-check:checked');
+            const cb = cardEl.querySelector('.card-check');
+            if (anyChecked || e.target.tagName === 'INPUT') {
+                if (cb) { cb.checked = !cb.checked; onCardCheckChange(cb); }
+                return;
+            }
+            openSidebar(cardEl);
+        }
+
+        function onCardCheckChange(cb) {
+            const card = cb.closest('.spool-card');
+            if (card) card.classList.toggle('card-selected', cb.checked);
+            invUpdateToolbar();
+        }
+
+        function invUpdateToolbar() {
+            const checked = document.querySelectorAll('.card-check:checked');
+            const toolbar = document.getElementById('inv-toolbar');
+            const count = document.getElementById('inv-sel-count');
+            toolbar.classList.toggle('hidden', checked.length === 0);
+            count.textContent = `${checked.length} selected`;
+        }
+
+        function invSelectAll() {
+            document.querySelectorAll('.card-check').forEach(cb => {
+                cb.checked = true;
+                cb.closest('.spool-card')?.classList.add('card-selected');
+            });
+            invUpdateToolbar();
+        }
+
+        function invSelectNone() {
+            document.querySelectorAll('.card-check').forEach(cb => {
+                cb.checked = false;
+                cb.closest('.spool-card')?.classList.remove('card-selected');
+            });
+            invUpdateToolbar();
+        }
+
+        async function invDeleteSelected() {
+            const checked = [...document.querySelectorAll('.card-check:checked')];
+            if (!checked.length) return;
+            const ids = checked.map(cb => cb.dataset.id);
+            if (!confirm(`Delete ${ids.length} spool${ids.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+            let ok = 0, fail = 0;
+            for (const id of ids) {
+                try {
+                    await apiFetch(`/api/filaments/${id}`, { method: 'DELETE' });
+                    ok++;
+                } catch { fail++; }
+            }
+            if (ok) showToast(`✓ Deleted ${ok} spool${ok > 1 ? 's' : ''}`, 'success');
+            if (fail) showToast(`${fail} deletion(s) failed`, 'error');
+            await loadAll();
+            renderInventory();
+        }
+
+        // ============================================================
+        // REORDER SELECTION
+        // ============================================================
+        function reorderCheckChange() {
+            const checked = document.querySelectorAll('.reorder-check:checked');
+            const all = document.querySelectorAll('.reorder-check');
+            const toolbar = document.getElementById('reorder-toolbar');
+            const count = document.getElementById('reorder-sel-count');
+            toolbar.classList.toggle('hidden', checked.length === 0);
+            count.textContent = `${checked.length} selected`;
+            const masterCb = document.getElementById('reorder-check-all');
+            if (masterCb) masterCb.indeterminate = checked.length > 0 && checked.length < all.length;
+            if (masterCb) masterCb.checked = checked.length === all.length && all.length > 0;
+        }
+
+        function reorderToggleAll(state) {
+            document.querySelectorAll('.reorder-check').forEach(cb => cb.checked = state);
+            reorderCheckChange();
+        }
+
+        function reorderSelectAll() { reorderToggleAll(true); }
+        function reorderSelectNone() { reorderToggleAll(false); }
+
+        async function reorderDeleteSelected() {
+            const checked = [...document.querySelectorAll('.reorder-check:checked')];
+            if (!checked.length) return;
+            const ids = checked.map(cb => cb.dataset.id);
+            if (!confirm(`Delete ${ids.length} spool${ids.length > 1 ? 's' : ''} from inventory? This cannot be undone.`)) return;
+            let ok = 0, fail = 0;
+            for (const id of ids) {
+                try {
+                    await apiFetch(`/api/filaments/${id}`, { method: 'DELETE' });
+                    ok++;
+                } catch { fail++; }
+            }
+            if (ok) showToast(`✓ Deleted ${ok} spool${ok > 1 ? 's' : ''}`, 'success');
+            if (fail) showToast(`${fail} deletion(s) failed`, 'error');
+            await loadAll();
+            renderReorder();
+        }
+
+        // ============================================================
+        // USAGE SELECTION
+        // ============================================================
+        function usageCheckChange() {
+            const checked = document.querySelectorAll('.usage-check:checked');
+            const all = document.querySelectorAll('.usage-check');
+            const toolbar = document.getElementById('usage-toolbar');
+            const count = document.getElementById('usage-sel-count');
+            toolbar.classList.toggle('hidden', checked.length === 0);
+            // Show total grams selected
+            const totalG = [...checked].reduce((s, cb) => s + parseFloat(cb.dataset.weight || 0), 0);
+            count.textContent = `${checked.length} selected (${Math.round(totalG)}g total)`;
+            const masterCb = document.getElementById('usage-check-all');
+            if (masterCb) masterCb.indeterminate = checked.length > 0 && checked.length < all.length;
+            if (masterCb) masterCb.checked = checked.length === all.length && all.length > 0;
+        }
+
+        function usageToggleAll(state) {
+            document.querySelectorAll('.usage-check').forEach(cb => cb.checked = state);
+            usageCheckChange();
+        }
+
+        function usageSelectAll() { usageToggleAll(true); }
+        function usageSelectNone() { usageToggleAll(false); }
+
+        async function usageDeleteSelected(restoreFilament) {
+            const checked = [...document.querySelectorAll('.usage-check:checked')];
+            if (!checked.length) return;
+            const entries = checked.map(cb => ({
+                id: cb.dataset.id,
+                filamentId: cb.dataset.filamentId,
+                weight: parseFloat(cb.dataset.weight || 0)
+            }));
+            const totalG = entries.reduce((s, e) => s + e.weight, 0);
+            const action = restoreFilament
+                ? `Delete ${entries.length} log entr${entries.length > 1 ? 'ies' : 'y'} and add ${Math.round(totalG)}g back to the relevant spool(s)?`
+                : `Delete ${entries.length} log entr${entries.length > 1 ? 'ies' : 'y'} without restoring filament?`;
+            if (!confirm(action)) return;
+
+            let ok = 0, fail = 0;
+            for (const entry of entries) {
+                try {
+                    await apiFetch(`/api/usage/${entry.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ restore: restoreFilament })
+                    });
+                    ok++;
+                } catch { fail++; }
+            }
+            if (ok) showToast(`✓ Deleted ${ok} entr${ok > 1 ? 'ies' : 'y'}${restoreFilament ? ' — filament restored' : ''}`, 'success');
+            if (fail) showToast(`${fail} deletion(s) failed`, 'error');
+            await loadAll();
+            await loadUsage();
         }
 
         // ============================================================
