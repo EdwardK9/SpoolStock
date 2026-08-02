@@ -1,0 +1,12 @@
+services:
+  spoolstats:
+    container_name: spoolstats
+    build:
+      context: .
+      dockerfile: dockerfile
+    image: filamentflow:latest
+    ports:
+      - '5000:5000'
+    restart: unless-stopped
+    volumes:
+      - /mnt/Applications/SpoolStats/data:/app/data

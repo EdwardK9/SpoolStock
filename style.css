@@ -85,6 +85,105 @@ body::before {
 .content {
     position: relative;
     z-index: 1;
+    /* Fluid full-width layout: fills the screen with comfortable
+       padding that scales with viewport size (was capped at 1280px). */
+    width: 100%;
+    max-width: 2800px;
+    margin: 0 auto;
+    padding-left: clamp(16px, 2.5vw, 56px);
+    padding-right: clamp(16px, 2.5vw, 56px);
+}
+
+/* Responsive card grid — as many columns as fit, min 310px each */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: 20px;
+}
+
+/* Compact low-stock alert grid (dashboard) */
+.low-stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.low-stock-mini {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--card-shadow);
+}
+
+.low-stock-mini:hover {
+    transform: translateY(-2px);
+    border-color: var(--border2);
+}
+
+.low-stock-mini.empty { opacity: 0.6; }
+
+/* Table wrapper — rounded card that scrolls sideways when too narrow */
+.table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Header dropdown menu */
+.dropdown { position: relative; }
+
+.dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 150;
+    min-width: 220px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    animation: fadeUp 0.15s ease;
+}
+
+.dropdown-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.dropdown-menu button:hover {
+    background: var(--surface3);
+    color: var(--accent);
+}
+
+.dropdown-label {
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 8px 12px 4px;
+}
+
+#top-controls {
+    position: static;
 }
 
 /* NAV */
@@ -205,6 +304,20 @@ body::before {
     border-color: var(--accent);
 }
 
+/* Prominent context-sensitive Add button (header) */
+.header-add-btn {
+    font-size: 14px;
+    padding: 11px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    white-space: nowrap;
+}
+.header-add-btn .header-add-plus {
+    font-size: 1.15em;
+    line-height: 1;
+    margin-right: 2px;
+}
+.header-add-btn.hidden { display: none; }
+
 .btn-danger {
     background: rgba(239, 68, 68, 0.1);
     color: var(--red);
@@ -286,9 +399,10 @@ body::before {
     background: var(--modal-bg);
     backdrop-filter: blur(6px);
     display: none;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    padding: 16px;
+    padding: 24px 16px;
+    overflow-y: auto;
 }
 
 .modal-overlay.open {
@@ -302,8 +416,8 @@ body::before {
     padding: 32px;
     width: 100%;
     max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
+    height: fit-content;
+    margin: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
@@ -325,6 +439,37 @@ body::before {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     text-align: left;
+}
+
+.data-table th[data-sort-table][data-sort-key] {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 28px;
+}
+
+.data-table th[data-sort-table][data-sort-key]:hover {
+    color: var(--text2);
+}
+
+.data-table th[data-sort-table][data-sort-key]::after {
+    content: '↕';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.data-table th[data-sort-dir="asc"]::after {
+    content: '↑';
+    color: var(--accent);
+}
+
+.data-table th[data-sort-dir="desc"]::after {
+    content: '↓';
+    color: var(--accent);
 }
 
 .data-table td {
@@ -424,6 +569,23 @@ textarea:focus {
 input::placeholder,
 textarea::placeholder {
     color: var(--muted);
+}
+
+input[type="date"] {
+    color-scheme: dark;
+}
+
+[data-theme="light"] input[type="date"] {
+    color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(0.85);
+}
+
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0);
 }
 
 select option {
@@ -564,4 +726,182 @@ select option {
 ::-webkit-scrollbar-thumb {
     background: var(--border2);
     border-radius: 3px;
+}
+/* ── SECTION SWITCHER ─────────────────────────────── */
+#section-switcher {
+    flex-wrap: wrap; /* never overflow at mid widths */
+}
+
+.section-btn {
+    color: var(--text2);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.section-btn.active {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 2px 12px rgba(79, 142, 247, 0.35);
+}
+
+.section-btn:hover:not(.active) {
+    background: var(--surface3);
+    color: var(--text);
+}
+
+@media (max-width: 900px) {
+    #app-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #app-header-left {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    #db-controls {
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+        border-left: none !important;
+        flex-wrap: wrap;
+    }
+
+    #top-controls {
+        width: 100%;
+        margin-left: 0 !important;
+        justify-content: flex-start;
+        padding-bottom: 4px;
+    }
+
+    #header-actions {
+        flex-wrap: wrap;
+        white-space: normal !important;
+    }
+
+    #section-switcher {
+        width: 100% !important;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .section-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    #filament-tab-nav {
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        align-items: center;
+        padding-bottom: 8px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #filament-tab-nav .nav-tab,
+    #filament-tab-actions {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    #filament-tab-actions {
+        margin-left: 0;
+    }
+
+    .sel-toolbar,
+    .section-header {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 640px) {
+    .content {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .modal-box {
+        padding: 20px;
+        border-radius: 16px;
+    }
+
+    .stat-card {
+        padding: 16px;
+    }
+
+    #top-controls {
+        gap: 8px;
+    }
+
+    #top-controls .btn-ghost,
+    #top-controls .btn-primary,
+    #header-actions .btn-ghost,
+    #header-actions .btn-primary,
+    #filament-tab-actions .btn-ghost,
+    #filament-tab-actions .btn-primary {
+        padding: 9px 12px;
+        font-size: 12px;
+    }
+
+    #top-controls {
+        justify-content: flex-start;
+        width: 100%;
+    }
+    .header-add-btn {
+        font-size: 13px;
+        padding: 10px 14px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+
+    #toast {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        max-width: none;
+    }
+
+    /* Compact spool cards — quick glance at colour + remaining grams */
+    .spool-card { padding: 14px !important; }
+
+    .spool-card h3 { font-size: 15px; }
+
+    .spool-card .color-chip {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 10px !important;
+    }
+
+    .spool-card img.color-chip {
+        width: 44px !important;
+        height: 44px !important;
+    }
+
+    .card-grid { gap: 12px; }
+
+    .card-actions .btn-ghost {
+        padding: 8px 10px;
+        font-size: 11px;
+    }
+
+    /* Filter bars stack cleanly */
+    #tab-inventory .flex.flex-wrap input[type=text],
+    #tab-inventory .flex.flex-wrap select {
+        min-width: 0 !important;
+        max-width: none !important;
+        flex: 1 1 45% !important;
+    }
+
+    /* Stat numbers slightly smaller so 2-up cards never clip */
+    .stat-card p.text-3xl { font-size: 24px; }
+
+    .modal-box .grid.grid-cols-2 { grid-template-columns: 1fr; }
 }
