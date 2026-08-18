@@ -449,6 +449,42 @@ def download_database(name):
     return send_file(path, as_attachment=True, download_name=path.name)
 
 
+@app.route("/api/databases/upload", methods=["POST"])
+def upload_database():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"error": "No file supplied"}), 400
+
+    raw_name = (request.form.get("name") or "").strip() or Path(secure_filename(file.filename)).stem
+    if not raw_name:
+        return jsonify({"error": "A database name is required"}), 400
+    path = db_path_for(raw_name)
+
+    overwrite = (request.form.get("overwrite") or "").lower() in ("1", "true", "yes")
+    if path.exists() and not overwrite:
+        return jsonify({"error": f'A database named "{path.stem}" already exists.', "exists": True}), 409
+
+    header = file.stream.read(16)
+    file.stream.seek(0)
+    if header != b"SQLite format 3\x00":
+        return jsonify({"error": "That file doesn't look like a SQLite database (.db)"}), 400
+
+    tmp_path = path.with_suffix(".db.uploading")
+    file.save(tmp_path)
+
+    try:
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("SELECT name FROM sqlite_master LIMIT 1")
+        _migrate(conn)
+        conn.close()
+    except sqlite3.Error as e:
+        tmp_path.unlink(missing_ok=True)
+        return jsonify({"error": f"Not a valid SQLite database: {e}"}), 400
+
+    tmp_path.replace(path)
+    return jsonify({"ok": True, "name": path.stem}), 201
+
+
 # ─── App Settings API ───────────────────────────────────────────────────────
 # Small key/value store for app-wide toggles (e.g. hiding the Filaments
 # section once spool tracking has moved to a separate app like Bambuddy).

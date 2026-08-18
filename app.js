@@ -3941,6 +3941,51 @@ async function submitNewDb() {
 
 function downloadCurrentDb() { window.location.href = `/api/databases/${encodeURIComponent(currentDb)}/download`; }
 
+async function uploadDatabaseFile(file, name, overwrite) {
+    const form = new FormData();
+    form.append('file', file);
+    if (name) form.append('name', name);
+    if (overwrite) form.append('overwrite', '1');
+    const res  = await fetch('/api/databases/upload', { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const err = new Error(data.error || 'Upload failed');
+        err.exists = data.exists;
+        throw err;
+    }
+    return data;
+}
+
+document.getElementById('db-upload')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const defaultName = file.name.replace(/\.db$/i, '');
+    const name = (prompt('Name this database:', defaultName) || '').trim();
+    if (!name) { e.target.value = ''; return; }
+
+    showToast('Uploading database…', 'info');
+    try {
+        let data;
+        try {
+            data = await uploadDatabaseFile(file, name, false);
+        } catch (err) {
+            if (err.exists) {
+                if (!confirm(`"${name}" already exists. Overwrite it?`)) { e.target.value = ''; return; }
+                data = await uploadDatabaseFile(file, name, true);
+            } else {
+                throw err;
+            }
+        }
+        showToast(`✓ Uploaded database "${data.name}"`, 'success');
+        await loadDatabases();
+        switchDatabase(data.name);
+    } catch (err) {
+        showToast('Upload failed: ' + err.message, 'error');
+    } finally {
+        e.target.value = '';
+    }
+});
+
 // ============================================================
 // MATERIALS
 // ============================================================

@@ -31,7 +31,9 @@
                 <span class="text-xs mono" style="color:var(--muted)">DB:</span>
                 <select id="db-selector" onchange="switchDatabase(this.value)" style="width:auto;min-width:140px;font-size:12px;padding:6px 10px"></select>
                 <button onclick="openNewDbModal()" class="btn-ghost text-xs py-1.5 px-2" title="New database">＋</button>
+                <button onclick="document.getElementById('db-upload').click()" class="btn-ghost text-xs py-1.5 px-2" title="Upload database">⬆</button>
                 <button onclick="downloadCurrentDb()" class="btn-ghost text-xs py-1.5 px-2" title="Download database">⬇</button>
+                <input type="file" id="db-upload" class="hidden" accept=".db">
             </div>
         </div>
         <div id="top-controls" class="flex gap-2 items-center flex-wrap justify-end ml-auto">
@@ -53,6 +55,7 @@
                         <p class="dropdown-label">Everything</p>
                         <button onclick="closeDataMenu();document.getElementById('global-csv-upload').click()">⬆ Import Global CSV</button>
                         <button onclick="closeDataMenu();downloadAllCsv()">⬇ Export Global CSV</button>
+                        <button onclick="closeDataMenu();document.getElementById('db-upload').click()">⬆ Upload Database</button>
                         <button onclick="closeDataMenu();downloadCurrentDb()">💾 Download Database</button>
                         <p class="dropdown-label">Bambuddy</p>
                         <button onclick="closeDataMenu();document.getElementById('bambuddy-csv-upload').click()">⬆ Import Bambuddy CSV</button>
