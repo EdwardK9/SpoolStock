@@ -1,0 +1,8 @@
+.git
+.github
+.claude
+data
+__pycache__
+*.pyc
+README.md
+TRUENAS-UPDATE.md

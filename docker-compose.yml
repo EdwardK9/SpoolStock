@@ -1,10 +1,7 @@
 services:
   spoolstats:
     container_name: spoolstats
-    build:
-      context: .
-      dockerfile: dockerfile
-    image: filamentflow:latest
+    image: ghcr.io/edwardk9/spoolstock:latest
     ports:
       - '5000:5000'
     restart: unless-stopped
